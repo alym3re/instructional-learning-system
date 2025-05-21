@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4 fw-bold text-primary" style="font-size:2.8rem;">
+        <i class="bi bi-people "></i> Students
+    </h1>
+    <form id="student-search-form" class="row gy-2 gx-2 align-items-end mb-4" autocomplete="off" method="get">
+        <div class="col-md-4">
+            <input type="text" name="query" class="form-control" placeholder="Search student..." value="{{ query }}">
+        </div>
+        <div class="col-md-3">
+            <select name="section" class="form-select">
+                <option value="">All Sections</option>
+                {% for s in sections %}
+                    <option value="{{ s }}" {% if s == section %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select name="year_level" class="form-select">
+                <option value="">All Year Levels</option>
+                {% for y in year_levels %}
+                    <option value="{{ y.0 }}" {% if y.0 == year_level %}selected{% endif %}>{{ y.1 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-search"></i>
+                Search
+            </button>
+        </div>
+    </form>
+    <div class="row">
+        {% for student in students %}
+            <div class="col-lg-4 col-md-6 px-2 mb-3">
+                <div class="card h-100 rounded-lg student-card">
+                    <a href="#" class="d-flex align-items-center text-decoration-none h-100 p-3" data-bs-toggle="modal" data-bs-target="#studentInfoModal"
+                       data-student-id="{{ student.id }}" 
+                       data-fullname="{{ student.get_full_name }}"
+                       data-section="{{ student.section }}"
+                       data-year-level="{{ student.get_year_level_display }}"
+                       data-student-id-val="{{ student.student_id }}"
+                       data-profile-pic-url="{% if student.profile_pic %}{{ student.profile_pic.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}"
+                       data-username="{{ student.username }}"
+                       data-date-joined="{{ student.date_joined }}"
+                       data-last-updated="{{ student.last_updated }}">
+                        <div class="img-container me-3 flex-shrink-0">
+                            <img src="{% if student.profile_pic %}{{ student.profile_pic.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}" 
+                                 class="rounded-circle border border-3" alt="{{ student.get_full_name }}" style="object-fit:cover;height:60px;width:60px;border-color: var(--primary-color) !important; background-color: var(--primary-color) !important;">
+                        </div>
+                        <div class="main-container w-100 overflow-hidden">
+                            <div class="name-id-container d-flex justify-content-between align-items-center">
+                                <p class="m-0 text-truncate fw-bold text-primary" style="font-size:1.15rem;">{{ student.get_full_name }}</p>
+                                <span class="badge bg-primary ms-2" style="font-size:.98rem;">{{ student.student_id }}</span>
+                                <p class="d-none">{{ student.id }}</p>
+                            </div>
+                            <div class="separator my-2" style="background-color: var(--accent-color);height:1.5px;"></div>
+                            <div class="company">
+                                <p class="m-0 text-truncate text-secondary">
+                                    <b>Section:</b> {{ student.section|default:"N/A" }} | 
+                                    <b>Year:</b> {{ student.get_year_level_display|default:"N/A" }}
+                                </p>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        {% empty %}
+            <div class="col">
+                <div class="alert alert-info">No students found.</div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Student Info Modal -->
+<div class="modal fade" id="studentInfoModal" tabindex="-1" aria-labelledby="studentInfoModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content rounded-lg shadow">
+      <div class="modal-header bg-primary text-light rounded-top">
+        <h5 class="modal-title" id="studentInfoModalLabel" style="letter-spacing:0.8px;">Student Info</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body bg-light">
+        <!-- Filled by JS -->
+        <div class="d-flex align-items-center mb-3">
+          <img id="modalProfilePic" src="" alt="Profile" width="68" height="68" class="rounded-circle border border-3 me-3" style="object-fit:cover;border-color: var(--primary-color) !important;">
+          <div>
+            <h4 id="modalFullName" class="mb-0 fw-bold text-primary"></h4>
+            <small id="modalUsername" class="text-muted"></small>
+          </div>
+        </div>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item"><b>Student ID:</b> <span id="modalStudentID" class="text-primary"></span></li>
+            <li class="list-group-item"><b>Section:</b> <span id="modalSection" class="text-secondary"></span></li>
+            <li class="list-group-item"><b>Year Level:</b> <span id="modalYearLevel"></span></li>
+            <li class="list-group-item"><b>Date Joined:</b> <span id="modalDateJoined"></span></li>
+            <li class="list-group-item"><b>Last Updated:</b> <span id="modalLastUpdated"></span></li>
+        </ul>
+      </div>
+      <div class="modal-footer bg-light rounded-bottom">
+        <button type="button" class="btn btn-outline-primary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JS to handle opening modal with data -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Student modal
+    document.getElementById('studentInfoModal').addEventListener('show.bs.modal', function(event) {
+        let button = event.relatedTarget;
+        document.getElementById('modalProfilePic').src = button.dataset.profilePicUrl;
+        document.getElementById('modalFullName').textContent = button.dataset.fullname;
+        document.getElementById('modalUsername').textContent = '@' + button.dataset.username;
+        document.getElementById('modalStudentID').textContent = button.dataset.studentIdVal;
+        document.getElementById('modalSection').textContent = button.dataset.section || 'N/A';
+        document.getElementById('modalYearLevel').textContent = button.dataset.yearLevel || 'N/A';
+        document.getElementById('modalDateJoined').textContent = (button.dataset.dateJoined||"").replace("T", " ").slice(0, 19);
+        document.getElementById('modalLastUpdated').textContent = (button.dataset.lastUpdated||"").replace("T", " ").slice(0, 19);
+    });
+});
+</script>
+{% endblock %}
+
+<style>
+.student-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    position: relative;
+    transition: box-shadow 0.18s;
+}
+.student-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+}
+.separator {
+    width: 100%;
+}
+.img-container img {
+    background: #fff;
+}
+</style>

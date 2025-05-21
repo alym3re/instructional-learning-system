@@ -1,0 +1,297 @@
+
+
+{% extends 'base.html' %}
+{% load dict_extras %}
+{% load percentage_extras %}
+{% block title %}My Dashboard{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="mb-4 fw-bold text-primary" style="font-size:2.8rem;">
+        <i class="bi bi-speedometer2"></i> Dashboard
+    </h1>
+    
+    <!-- ======================== RANK AND ACHIEVEMENTS ============================= -->
+    <div class="row mb-4">
+        <!-- Overall Rank Card, points from all quiz & exam -->
+        <div class="col-md-5 mb-3">
+            <div class="card border-info shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="display-5 fw-bold text-maroon mb-3">
+                        <i class="bi bi-trophy-fill"></i>
+                        {% if overall_rank %} #{{ overall_rank }} {% else %} - {% endif %}
+                    </div>
+                    <div class="fw-medium text-muted">
+                        Your Overall Rank
+                    </div>
+                    <div class="mt-3">
+                        <span class="text-dark fw-semibold">
+                            Score : 
+                            {% if total_quiz_points is not None and total_exam_points is not None %}
+                                {{ total_quiz_points|default:0|floatformat:0 }} (Quizzes)
+                                +
+                                {{ total_exam_points|default:0|floatformat:0 }} (Exams)
+                            {% else %}
+                                -
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% if total_students %}
+                    <small class="text-muted">Out of {{ total_students }} students</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <!-- Achievements Cards: Lessons, Quizzes, Exams -->
+        <div class="col-md-7 mb-3">
+            <div class="row g-3">
+                <!-- Lessons Achievement Card -->
+                <div class="col-12 col-md-4">
+                    <div class="card border-primary h-100 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-book fs-4 text-primary me-2"></i>
+                                <span class="fw-bold">Lesson Achievements</span>
+                            </div>
+                            {% if lessons_achievements %}
+                                <ul class="list-group list-group-flush">
+                                    {% for ach in lessons_achievements %}
+                                    <li class="list-group-item px-1 py-1 border-0" style="background:transparent;">
+                                        {{ ach.description }}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <div class="text-muted fst-italic small">No lesson achievements yet.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <!-- Quiz Achievement Card -->
+                <div class="col-12 col-md-4">
+                    <div class="card border-success h-100 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-check-circle fs-4 text-success me-2"></i>
+                                <span class="fw-bold">Quiz Achievements</span>
+                            </div>
+                            {% if quiz_achievements %}
+                                <ul class="list-group list-group-flush">
+                                    {% for ach in quiz_achievements %}
+                                    <li class="list-group-item px-1 py-1 border-0" style="background:transparent;">
+                                        {{ ach.description }}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <div class="text-muted fst-italic small">No quiz achievements yet.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <!-- Exam Achievement Card -->
+                <div class="col-12 col-md-4">
+                    <div class="card border-warning h-100 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-star-fill fs-4 text-warning me-2"></i>
+                                <span class="fw-bold">Exam Achievements</span>
+                            </div>
+                            {% if exam_achievements %}
+                                <ul class="list-group list-group-flush">
+                                    {% for ach in exam_achievements %}
+                                    <li class="list-group-item px-1 py-1 border-0" style="background:transparent;">
+                                        {{ ach.description }}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <div class="text-muted fst-italic small">No exam achievements yet.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ======================== END RANK AND ACHIEVEMENTS ============================= -->
+    
+    <!-- ======================== GRADING PERIOD CARDS ============================= -->
+    <div class="row g-4">
+        {% for period_value, period_label in grading_periods %}
+        {% with stats=period_stats|get_item:period_value %}
+        <div class="col-12 col-sm-6 col-lg-6">
+            <div class="grading-period-card card border-0 shadow-sm position-relative d-flex flex-column h-100">
+                <div class="card-body d-flex flex-column justify-content-between align-items-center p-5">
+
+                    <h3 class="card-title fw-semibold mb-3 mt-2" style="font-size:2.1rem;">{{ stats.label }}</h3>
+                    
+                    <!-- Lessons summary -->
+                    <p class="mb-2 theme-muted" style="font-size:1.22rem;">
+                        <i class="bi bi-book me-1"></i>
+                        <span class="fw-medium">{{ stats.lessons_read_count|default:0 }}/{{ stats.total_lessons|default:0 }}</span>
+                        <span class="theme-muted">Lessons Read</span>
+                    </p>
+                    <div class="w-100 mb-3 mt-2">
+                        <div class="progress theme-progress" style="height: 24px;">
+                            <div class="progress-bar theme-maroon d-flex align-items-center justify-content-center"
+                                 role="progressbar"
+                                 style="width: {{ stats.lessons_progress_percent|default:0|smart_percent }}%; font-size:1.11rem;"
+                                 aria-valuenow="{{ stats.lessons_progress_percent|default:0|smart_percent }}"
+                                 aria-valuemin="0"
+                                 aria-valuemax="100">
+                                {{ stats.lessons_progress_percent|smart_percent }}%
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- QUIZZES SECTION: Shows actual score and actual rank among all users this period -->
+                    <div class="w-100 mb-2 mt-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-medium" style="font-size:1.19rem;">
+                                <i class="bi bi-question-circle theme-info me-2"></i>Quizzes Answered:
+                            </span>
+                            <span class="fw-bold">{{ stats.quizzes_answered_count|default:0 }}</span>
+                        </div>
+                        {% if stats.quiz_result_list %}
+                        <ul class="list-group list-group-flush mb-2">
+                            {% for quiz in stats.quiz_result_list %}
+                            <li class="list-group-item px-0">
+                                <span class="fw-semibold"><i class="bi bi-clipboard-data me-1"></i> {{ quiz.quiz_title }}</span>
+                                <span class="badge bg-primary ms-2">
+                                  {% if quiz.earned_points is not None and quiz.total_points %}
+                                      {{ quiz.earned_points|floatformat:0 }}/{{ quiz.total_points|floatformat:0 }} points
+                                      ({{ quiz.score_percent|smart_percent }}%)
+                                  {% else %}
+                                      {{ quiz.score|floatformat:0 }}/{{ quiz.total_score|floatformat:0 }} 
+                                      ({{ quiz.score_percent|smart_percent }}%)
+                                  {% endif %}
+                                </span>
+                                <span class="ms-2">Rank: <span class="fw-bold text-maroon">{% if quiz.placer %}{{ quiz.placer }}{% else %}-{% endif %}</span></span>
+                                {% if quiz.badge %}
+                                    <span class="badge bg-success ms-2"><i class="bi bi-award"></i> Top Scorer</span>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="text-muted mb-0" style="font-size:1.04rem;">No quiz attempts for this period.</p>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- EXAMS SECTION: Shows actual score and actual rank among all users this period -->
+                    <div class="w-100 mb-1 mt-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-medium" style="font-size:1.19rem;">
+                                <i class="bi bi-clipboard-check theme-danger me-2"></i>Exams Taken:
+                            </span>
+                            <span class="fw-bold">{{ stats.exam_result_list|length|default:0 }}</span>
+                        </div>
+                        {% if stats.exam_result_list %}
+                        <ul class="list-group list-group-flush mb-2">
+                            {% for exam in stats.exam_result_list %}
+                            <li class="list-group-item px-0">
+                                <span class="fw-semibold"><i class="bi bi-file-earmark-text me-1"></i> {{ exam.exam_title }}</span>
+                                <span class="badge bg-warning ms-2">
+                                  {% if exam.earned_points is not None and exam.total_points %}
+                                      {{ exam.earned_points|floatformat:0 }}/{{ exam.total_points|floatformat:0 }} points
+                                      ({{ exam.score_percent|smart_percent }}%)
+                                  {% else %}
+                                      {{ exam.score|floatformat:0 }}/{{ exam.total_score|floatformat:0 }} 
+                                      ({{ exam.score_percent|smart_percent }}%)
+                                  {% endif %}
+                                </span>
+                                <span class="ms-2">Rank: <span class="fw-bold text-danger">{% if exam.placer %}{{ exam.placer }}{% else %}-{% endif %}</span></span>
+                                <span class="ms-2">
+                                    Status:
+                                    {% if exam.status == "passed" %}
+                                        <span class="badge bg-success">Passed</span>
+                                    {% elif exam.status == "failed" %}
+                                        <span class="badge bg-danger">Failed</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ exam.status }}</span>
+                                    {% endif %}
+                                </span>
+                                {% if exam.badge %}
+                                    <span class="badge bg-success ms-2"><i class="bi bi-award"></i> Top Scorer</span>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p class="text-muted mb-0" style="font-size:1.04rem;">No exam attempts for this period.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endwith %}
+        {% empty %}
+            <div class="col-12">
+                <div class="alert alert-warning">No grading periods found.</div>
+            </div>
+        {% endfor %}
+    </div>
+    <!-- ======================== END GRADING PERIOD CARDS ============================= -->
+
+</div>
+
+
+<style>
+.grading-period-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08), 0 1.5px 5px rgba(86,113,156,.02);
+    overflow: hidden;
+    position: relative;
+    transition: box-shadow 0.18s;
+}
+.grading-period-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+}
+.text-maroon {
+    color: #762730 !important;
+}
+.theme-maroon {
+    background: #762730 !important;
+    color: #fff;
+    font-weight: 500;
+}
+/* Dashboard summary cards styling */
+.card.border-info {
+    border-color: #0dcaf0 !important;
+}
+.card.border-success {
+    border-color: #198754 !important;
+}
+.card.border-primary {
+    border-color: #0d6efd !important;
+}
+.display-5 {
+    font-size: 2.5rem;
+}
+.progress.theme-progress {
+    background: #ececec;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: none;
+}
+.progress-bar.theme-maroon {
+    background: #762730;
+    color: #fff;
+    font-weight: 500;
+    border-radius: 8px 0 0 8px;
+    box-shadow: none;
+    font-size: 1.22rem;
+    line-height: 2.1;
+}
+@media (max-width: 575px) {
+    .grading-period-card .card-body {
+        padding: 1.6rem 1.1rem;
+    }
+    .card-title {
+        font-size: 1.3rem !important;
+    }
+}
+</style>
+{% endblock %}

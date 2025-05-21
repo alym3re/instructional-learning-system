@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Password Reset Sent{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card auth-card shadow">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h4><i class="fas fa-envelope-open-text me-2"></i>Password Reset Sent</h4>
+                </div>
+                <div class="card-body p-4 text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-envelope fa-4x text-primary mb-3"></i>
+                        <h5>Check Your Email</h5>
+                    </div>
+                    <p>
+                        We've emailed you instructions for setting your password. 
+                        You should receive the email shortly!
+                    </p>
+                    <p class="text-muted">
+                        If you don't receive an email, please make sure you've entered 
+                        the address you registered with, and check your spam folder.
+                    </p>
+                    <a href="{% url 'login' %}" class="btn btn-primary mt-3">
+                        <i class="fas fa-arrow-left me-1"></i>Return to Login
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

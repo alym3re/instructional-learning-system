@@ -1,0 +1,71 @@
+
+/* BEGIN: Modern universal registration/auth form styles */
+.auth-card form input,
+.auth-card form select,
+.auth-card form textarea {
+  border-radius: 8px;
+  border: 1px solid var(--primary-color);
+  background: #fff;
+  font-size: 1rem;
+  padding: 0.65rem 1.1rem;
+  width: 100%;
+  transition: border-color 0.18s, background 0.18s;
+  box-shadow: none !important;
+  outline: none;
+  margin-bottom: 0.3rem;
+}
+
+.auth-card form input:focus,
+.auth-card form select:focus,
+.auth-card form textarea:focus {
+  border-color: var(--secondary-color);
+  background: #fff;
+}
+
+.auth-card form input[type="file"] {
+  background: #fff; /* default for file input */
+  padding: 0.4rem 0.6rem;
+}
+
+.auth-card form .invalid-feedback {
+  color: #c0392b;
+  font-size: 0.97rem;
+  margin-top: -0.25rem;
+  margin-bottom: 0.35rem;
+}
+
+.auth-card .form-label {
+  font-weight: 500;
+  color: var(--primary-color);
+  margin-bottom: 0.35rem;
+  display: block;
+}
+
+.auth-card .btn-primary {
+  background: var(--primary-color);
+  border: none;
+  border-radius: 10px;
+  font-size: 1.13rem;
+  font-weight: 600;
+  transition: background 0.18s;
+}
+
+.auth-card .btn-primary:hover {
+  background: var(--secondary-color);
+}
+
+.auth-card .link-primary {
+  color: var(--primary-color) !important;
+  text-decoration: none;
+  transition: color 0.12s;
+}
+
+.auth-card .link-primary:hover {
+  color: var(--secondary-color);
+  text-decoration: underline;
+}
+
+.card-header{
+  background-color: var(--primary-color) !important;
+}
+/* END: Modern universal registration/auth form styles */

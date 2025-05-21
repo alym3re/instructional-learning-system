@@ -1,0 +1,298 @@
+{% extends 'base.html' %}
+{% block title %}{{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="container quiz-view-container pt-5">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb fs-5 bg-white rounded p-3 theme-shadow" style="--bs-breadcrumb-divider: '›';">
+            <li class="breadcrumb-item">
+                <a href="{% url 'exams:grading_period_exam_list' %}" class="breadcrumb-link app-brand">Grading Periods</a>
+            </li>
+            <li class="breadcrumb-item active app-brand" aria-current="page">
+                {{ exam.get_grading_period_display }}
+            </li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Exam Details Card -->
+            <div class="quiz-card card grading-period-card border-0 shadow-sm mb-5">
+                <div class="card-header bg-white pb-3 pt-4 px-4 border-0">
+                    <h2 class="mb-0 fw-bold" style="font-size:2.1rem; line-height:1.1;">{{ exam.title }}</h2>
+
+                    <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
+
+                        <span class="badge bg-light theme-muted border" style="font-size:1.01rem;">
+                            <i class="bi bi-eye me-1"></i> {{ exam.view_count }} Views
+                        </span>
+                        <span class="badge bg-light theme-muted border" style="font-size:1.01rem;">
+                            <i class="bi bi-question-circle me-1"></i> {{ questions|length }} Questions
+                        </span>
+                        <span class="badge bg-light theme-muted border" style="font-size:1.01rem;">
+                            <i class="bi bi-percent me-1"></i> Passing: {{ exam.passing_score }}%
+                        </span>
+                        {% if exam.time_limit and exam.time_limit > 0 %}
+                        <span class="badge bg-light theme-muted border" style="font-size:1.01rem;">
+                            <i class="bi bi-clock me-1"></i> Time Limit: {{ exam.time_limit }} min.
+                        </span>
+                        {% endif %}
+                        {% if exam.locked %}
+                        <span class="badge bg-danger text-light" style="font-size:1.01rem;">
+                            <i class="bi bi-lock-fill me-1"></i> Locked
+                        </span>
+                        {% endif %}
+                    </div>
+
+                </div>
+                <div class="card-body p-4">
+                    <div class="quiz-content mb-4" style="font-size:1.17rem;">
+                        {{ exam.description|linebreaksbr }}
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-start flex-wrap">
+                        <div class="d-flex gap-2 flex-wrap">
+                            {% if request.user.is_staff %}
+                                <a href="{% url 'exams:add_exam_questions' exam.id %}" class="btn btn-theme-primary btn-lg d-flex align-items-center ms-2 mt-2 mt-lg-0">
+                                    <i class="bi bi-pencil-square me-2"></i> Edit Questions
+                                </a>
+                                <a href="{% url 'exams:edit_exam' exam.id %}" class="btn btn-theme-primary btn-lg d-flex align-items-center ms-2 mt-2 mt-lg-0">
+                                    <i class="bi bi-pencil me-2"></i> Edit Exam
+                                </a>
+                                {% if exam.locked %}
+                                    <a href="{% url 'exams:unlock_exam' exam.id %}" class="btn btn-theme-maroon-outline btn-lg d-flex align-items-center ms-2 mt-2 mt-lg-0">
+                                        <i class="bi bi-unlock me-2"></i> Unlock Exam
+                                    </a>
+                                {% else %}
+                                    <a href="{% url 'exams:lock_exam' exam.id %}" class="btn btn-theme-primary btn-lg d-flex align-items-center ms-2 mt-2 mt-lg-0">
+                                        <i class="bi bi-lock-fill me-2"></i> Lock Exam
+                                    </a>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if not exam.locked and not request.user.is_staff %}
+                        {% if completed %}
+                            <span class="btn btn-success mb-2 disabled" style="font-size:1.17rem;">
+                              <i class="bi bi-check-circle me-1"></i> Completed
+                            </span>
+                        {% else %}
+                            <a href="{% url 'exams:take_exam' exam.id %}" class="btn btn-theme-primary mb-2">Take Exam</a>
+                        {% endif %}
+                    {% elif exam.locked and not request.user.is_staff %}
+                        <span class="btn btn-danger mb-2 disabled" style="font-size:1.17rem;">
+                            <i class="bi bi-x-circle me-1"></i> This exam is locked
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Questions Display Card -->
+            {% if request.user.is_staff %}
+
+            <div class="quiz-card card grading-period-card border-0 shadow-sm mb-5">
+                <div class="card-header bg-white pb-2 pt-3 px-4 border-0">
+                    <h4 class="fw-semibold mb-0" style="font-size:1.35rem;">
+                        <i class="bi bi-question-circle me-2"></i>Questions
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    {% for question in questions %}
+                        <div class="mb-4">
+                            <h5>Q{{ forloop.counter }}) {{ question.text }}</h5>
+                            <span class="badge bg-info">{{ question.get_question_type_display }}</span>
+                            <ul>
+                                {% for answer in question.answers.all %}
+                                    <li>
+                                        {{ answer.text }}{% if answer.is_correct %} <span class="badge bg-success">Correct</span>{% endif %}
+                                    </li>
+                                {% endfor %}
+                                {% if question.answers.all|length == 0 %}
+                                    <li><span class="text-muted">No answers specified for this question.</span></li>
+                                {% endif %}
+                            </ul>
+                            {% if question.explanation %}
+                                <div class="text-muted">{{ question.explanation }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    {% if questions|length == 0 %}
+                        <div class="alert alert-warning">No questions available for this exam yet.</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+        <!-- Optionally: Sidebar for future extensions -->
+    </div>
+</div>
+
+<style>
+
+.btn-theme-maroon-outline {
+    letter-spacing: .01em;
+    font-weight: 600;
+    border-radius: 10px;
+    background: #fff;
+    color: #762730;
+    border: 2px solid #762730;
+    transition: background 0.15s, color 0.15s;
+}
+.btn-theme-maroon-outline:hover,
+.btn-theme-maroon-outline:focus {
+    background: #762730;
+    color: #fff;
+}
+
+.btn-theme-primary {
+    background: var(--primary-color);
+    color: #fff;
+    border: none;
+    box-shadow: none;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: background 0.1s;
+}
+.btn-theme-primary:hover, .btn-theme-primary:focus {
+    background: var(--secondary-color);
+    color: #fff;
+}
+
+body {
+    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.access-theme-pagination .page-link {
+    border-radius: 8px;
+    margin: 0 2px;
+    color: var(--primary-color);
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+}
+.access-theme-pagination .page-link:hover {
+    background-color: #e9ecef;
+    color: var(--primary-color);
+}
+.access-theme-pagination .active-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+.app-brand, .breadcrumb .breadcrumb-link, .breadcrumb-item.active.app-brand {
+    color: var(--primary-color) !important;
+    text-decoration: none !important;
+    background: none !important;
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    transition: border-bottom 0.15s;
+}
+.breadcrumb .breadcrumb-link:hover, .breadcrumb .breadcrumb-link:focus {
+    border-bottom: 2px solid var(--primary-color);
+}
+.quiz-card,
+.grading-period-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    transition: box-shadow 0.18s;
+}
+.quiz-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+    transform: translateY(-3px) scale(1.01);
+}
+.theme-shadow {
+    box-shadow: 0 1px 8px rgba(86, 113, 156,.10) !important;
+}
+.theme-muted {
+    color: #888 !important;
+}
+.theme-info {
+    color: var(--info-color) !important;
+}
+.btn-theme-primary, .btn-theme-success, .btn-theme-muted  {
+    font-size: 1.09rem;
+    padding: 0.95rem 1.25rem;
+    border-radius: 10px;
+    font-weight: 600;
+}
+.btn-theme-primary {
+    background: var(--primary-color);
+    color: #fff !important;
+    border: none;
+    box-shadow: none;
+    letter-spacing: .01em;
+    transition: background 0.1s;
+}
+.btn-theme-primary:hover, .btn-theme-primary:focus {
+    background: var(--secondary-color);
+    color: #fff !important;
+}
+.btn-theme-success {
+    background: #d1fae5;
+    color: var(--success-color);
+    border: none;
+}
+.btn-theme-muted {
+    background: #ececec;
+    color: #b0b0b0;
+    border: none;
+}
+.badge.bg-light {
+    color: #888 !important;
+    border: 1px solid #eee;
+}
+@media (max-width: 767px) {
+    .quiz-card,
+    .grading-period-card {
+        margin-bottom: 2rem;
+    }
+    h2 {
+        font-size: 1.4rem !important;
+    }
+    .btn-theme-primary,
+    .btn-theme-success,
+    .btn-theme-muted  {
+        font-size: 0.97rem;
+        padding: 0.72rem 0.8rem;
+    }
+}
+</style>
+<script>
+/*
+ * Convert all timestamps to local Philippine time (Asia/Manila, UTC+8) in 12hr format with AM/PM.
+ * Example: "Apr 15, 2024 06:32 PM"
+ */
+function toPhilippineTimeString(dateISOString) {
+  const options = {
+    year: 'numeric', month: 'short', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: 'Asia/Manila'
+  };
+  const date = new Date(dateISOString);
+  let phString = date.toLocaleString('en-US', options)
+    // Remove comma after month for cleaner format (Apr 15 2024, 3:22 PM)
+    .replace(/,/, '')
+    .replace(/(\d{2}) (.*)/, '$1, $2');
+  return phString;
+}
+window.addEventListener('DOMContentLoaded', function() {
+  // Main uploaded date
+  var up = document.getElementById('uploaded-date');
+  if (up && up.dataset.datetime) {
+    up.textContent = toPhilippineTimeString(up.dataset.datetime);
+  }
+  // Convert all timestamps with class 'local-time' to Philippine time
+  document.querySelectorAll('.local-time').forEach(function(el) {
+    if (el.dataset.datetime) {
+      el.textContent = toPhilippineTimeString(el.dataset.datetime);
+    }
+  });
+});
+</script>
+{% endblock %}

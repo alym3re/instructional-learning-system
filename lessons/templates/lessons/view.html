@@ -1,0 +1,350 @@
+
+
+{% extends 'base.html' %}
+{% block title %}{{ lesson.title }}{% endblock %}
+
+{% block content %}
+<div class="container lesson-view-container pt-5">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb fs-5 bg-white rounded p-3 theme-shadow" style="--bs-breadcrumb-divider: '›';">
+            <li class="breadcrumb-item">
+                <a href="{% url 'lessons:grading_period_list' %}" class="breadcrumb-link app-brand">Grading Periods</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'lessons:lesson_list_by_period' lesson.grading_period %}" class="breadcrumb-link app-brand">
+                    {{ lesson.get_grading_period_display }}
+                </a>
+            </li>
+            <li class="breadcrumb-item active app-brand" aria-current="page">{{ lesson.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Lesson Details Card -->
+            <div class="lesson-card card grading-period-card border-0 shadow-sm mb-5">
+                <div class="card-header bg-white pb-3 pt-4 px-4 border-0">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                        <span class="badge bg-light theme-muted border d-flex align-items-center" style="font-size:1.01rem;">
+                            <i class="bi bi-person-circle me-1"></i> 
+                            Uploaded by <strong class="mx-1">{{ lesson.uploaded_by.get_full_name|default:lesson.uploaded_by.username }}</strong>
+                        </span>
+                        <span class="badge bg-light theme-muted border d-flex align-items-center" style="font-size:1.01rem;">
+                            <i class="bi bi-calendar-week me-1"></i>
+                            {{ grading_period_display }}
+                        </span>
+                        <span class="badge bg-light theme-muted border d-flex align-items-center" style="font-size:1.01rem;">
+                            <i class="bi bi-eye me-1"></i> {{ lesson.view_count }} views
+                        </span>
+                        <span class="badge bg-light theme-muted border d-flex align-items-center" style="font-size:1.01rem;">
+                            <i class="bi bi-clock-history me-1"></i> 
+                            <span id="uploaded-date" data-datetime="{{ lesson.upload_date|date:"c" }}">{{ lesson.upload_date|date:"M d, Y H:i" }}</span>
+                        </span>
+                    </div>
+                    <h2 class="fw-bold" style="font-size:2.1rem; line-height:1.1;">{{ lesson.title }}</h2>
+
+                </div>
+                <div class="card-body p-4">
+
+                    <div class="lesson-content mb-4" style="font-size:1.17rem;">
+                        {{ lesson.description|linebreaksbr }}
+                    </div>
+
+                    <!-- Uniform Actions Row -->
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        {% if user.is_staff %}
+                            {% if lesson.is_archived %}
+                                <form method="post" action="{% url 'lessons:lesson_unarchive' lesson.slug %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button class="btn btn-warning d-flex align-items-center" type="submit">
+                                        <i class="bi bi-arrow-up-circle me-2"></i> Unarchive
+                                    </button>
+                                </form>
+                            {% else %}
+                                <form method="post" action="{% url 'lessons:lesson_archive' lesson.slug %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <button class="btn btn-secondary d-flex align-items-center" type="submit">
+                                        <i class="bi bi-archive me-2"></i> Archive
+                                    </button>
+                                </form>
+                            {% endif %}
+
+                            
+
+                            <a href="{% url 'lessons:lesson_edit' lesson.slug %}" class="btn btn-outline-primary d-flex align-items-center">
+                                <i class="bi bi-pencil-square me-2"></i> Edit
+                            </a>
+
+                            <form method="post" action="{% url 'lessons:lesson_delete' lesson.slug %}" class="d-inline" onsubmit="return confirm('Are you sure you want to permanently remove this lesson?');">
+                                {% csrf_token %}
+                                <button class="btn btn-danger d-flex align-items-center" type="submit">
+                                    <i class="bi bi-trash me-2"></i> Remove
+                                </button>
+                            </form>
+                        {% endif %}
+                        {% if not user.is_staff %}
+                        <form method="post" action="{% url 'lessons:mark_completed' lesson.slug %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit"
+                              class="btn {% if progress.completed %}btn-success{% else %}btn-primary{% endif %} d-flex align-items-center">
+                                <i class="bi {% if progress.completed %}bi-check2-circle{% else %}bi-circle{% endif %} me-1"></i>
+                                <span style="font-size:1.09rem;">
+                                  {% if progress.completed %}Completed{% else %}Mark Complete{% endif %}
+                                </span>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Download -->
+            <div class="lesson-card card grading-period-card border-0 shadow-sm mb-5">
+                <div class="card-header bg-white border-0 pb-3 pt-4 px-4">
+                    <h4 class="fw-semibold mb-0" style="font-size:1.35rem;">
+                        <i class="bi bi-paperclip me-2"></i>Lesson Materials
+                    </h4>
+                </div>
+                <div class="card-body d-flex justify-content-between align-items-center p-4">
+                    <div class="d-flex align-items-center flex-grow-1" style="min-width:0;">
+                        <i class="bi bi-file-earmark-arrow-down theme-info me-3" style="font-size:2.1rem;"></i>
+                        <span class="lesson-material-filename" style="font-size:1.13rem; max-width:360px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; display:inline-block; vertical-align:middle;" title="{{ lesson.file.name|slice:'14:' }}">{{ lesson.file.name|slice:"14:" }}</span>
+                    </div>
+                    <div class="d-flex flex-row gap-2 ms-2 flex-shrink-0">
+                        <a href="{% url 'lessons:download_lesson_file' lesson.slug %}"
+                           class="btn btn-lg btn-theme-primary d-flex align-items-center">
+                            <i class="bi bi-download me-1"></i> Download
+                        </a>
+                        <a href="{% url 'lessons:read_file' lesson.slug %}"
+                           class="btn btn-lg btn-info d-flex align-items-center text-light">
+                            <i class="bi bi-file-earmark-arrow-up me-1"></i> Open
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            {% if user.is_staff and access_page_obj %}
+<!-- Users Who Viewed or Downloaded Card -->
+<div class="lesson-card card grading-period-card border-0 shadow-sm mb-5">
+    <div class="card-header bg-white border-0 pb-3 pt-4 px-4">
+        <h4 class="fw-semibold mb-0" style="font-size:1.35rem;">
+            <i class="bi bi-people me-2"></i>Users Who Viewed or Downloaded
+        </h4>
+    </div>
+    <div class="card-body p-4">
+        {% if lesson_access %}
+        <ul class="list-group">
+            {% for log in lesson_access %}
+            <li class="list-group-item d-flex justify-content-between align-items-center" style="font-size:1.1rem;">
+                <span>
+                    <strong>{{ log.user.get_full_name|default:log.user.username }}</strong>
+                    <span class="badge bg-secondary ms-2">{{ log.access_type|capfirst }}</span>
+                </span>
+                <span class="theme-muted log-timestamp" data-datetime="{{ log.timestamp|date:"c" }}">{{ log.timestamp|date:"M d, Y H:i" }}</span>
+            </li>
+            {% empty %}
+            <li class="list-group-item">No views or downloads yet.</li>
+            {% endfor %}
+        </ul>
+        <nav aria-label="Access log pagination" class="mt-4">
+            <ul class="pagination justify-content-center access-theme-pagination mb-0 gap-2">
+                {% if access_page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link btn-access-pagination" href="?access_page={{ access_page_obj.previous_page_number }}#access-log">
+                        &laquo; Previous
+                    </a>
+                </li>
+                {% endif %}
+                {% for num in access_page_obj.paginator.page_range %}
+                {% if access_page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link btn-access-pagination active-btn">{{ num }}</span>
+                </li>
+                {% else %}
+                <li class="page-item">
+                    <a class="page-link btn-access-pagination" href="?access_page={{ num }}#access-log">{{ num }}</a>
+                </li>
+                {% endif %}
+                {% endfor %}
+                {% if access_page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link btn-access-pagination" href="?access_page={{ access_page_obj.next_page_number }}#access-log">
+                        Next &raquo;
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% else %}
+        <p style="font-size:1.13rem;">No users have accessed this lesson yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+        </div>
+        <!-- Optionally: Sidebar for future extensions -->
+    </div>
+</div>
+<style>
+body {
+    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.app-brand, .breadcrumb .breadcrumb-link, .breadcrumb-item.active.app-brand {
+    color: var(--primary-color) !important;
+    text-decoration: none !important;
+    background: none !important;
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    transition: border-bottom 0.15s;
+}
+.breadcrumb .breadcrumb-link:hover, .breadcrumb .breadcrumb-link:focus {
+    border-bottom: 2px solid var(--primary-color);
+}
+.lesson-card,
+.grading-period-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    transition: box-shadow 0.18s;
+}
+.lesson-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+    transform: translateY(-3px) scale(1.01);
+}
+.theme-shadow {
+    box-shadow: 0 1px 8px rgba(86, 113, 156,.10) !important;
+}
+.theme-muted {
+    color: #888 !important;
+}
+.theme-info {
+    color: var(--info-color) !important;
+}
+.btn-theme-primary, .btn-theme-success, .btn-theme-muted  {
+    font-size: 1.09rem;
+    padding: 0.95rem 1.25rem;
+    border-radius: 10px;
+    font-weight: 600;
+}
+.btn-theme-primary {
+    background: var(--primary-color);
+    color: #fff !important;
+    border: none;
+    box-shadow: none;
+    letter-spacing: .01em;
+    transition: background 0.1s;
+}
+.btn-theme-primary:hover, .btn-theme-primary:focus {
+    background: var(--secondary-color);
+    color: #fff !important;
+}
+.btn-theme-success {
+    background: #d1fae5;
+    color: var(--success-color);
+    border: none;
+}
+.btn-theme-muted {
+    background: #ececec;
+    color: #b0b0b0;
+    border: none;
+}
+.badge.bg-light {
+    color: #888 !important;
+    border: 1px solid #eee;
+}
+.access-theme-pagination {
+    gap: 0.4rem;
+    margin-bottom: 0;
+}
+.btn-access-pagination {
+    font-size: 1.09rem;
+    color: var(--primary-color);
+    background: #fff;
+    border: 2px solid var(--primary-color);
+    border-radius: 10px;
+    padding: 0.58em 1.16em;
+    font-weight: 600;
+    box-shadow: none;
+    transition: background .13s, color .13s, border-color .13s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-access-pagination:hover, .btn-access-pagination:focus {
+    background: var(--primary-color);
+    color: #fff;
+    border-color: var(--secondary-color);
+    text-decoration: none;
+}
+.active-btn, .page-item.active .btn-access-pagination, .page-item.active .page-link {
+    background: var(--primary-color) !important;
+    color: #fff !important;
+    border-color: var(--primary-color);
+    cursor: default;
+    box-shadow: none;
+    font-weight: 700;
+}
+.page-item.disabled .btn-access-pagination, .page-link[disabled] {
+    color: #b0b0b0 !important;
+    background: #ececec !important;
+    border-color: #ececec !important;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+@media (max-width: 767px) {
+    .lesson-card,
+    .grading-period-card {
+        margin-bottom: 2rem;
+    }
+    h2 {
+        font-size: 1.4rem !important;
+    }
+    .btn-theme-primary,
+    .btn-theme-success,
+    .btn-theme-muted  {
+        font-size: 0.97rem;
+        padding: 0.72rem 0.8rem;
+    }
+    .btn-access-pagination {
+        font-size: 0.98rem;
+        border-radius: 7px;
+        padding: 0.50em 0.7em;
+    }
+}
+</style>
+<script>
+/*
+ * Convert all timestamps to local Philippine time (Asia/Manila, UTC+8) in 12hr format with AM/PM.
+ * Example: "Apr 15, 2024 06:32 PM"
+ */
+function toPhilippineTimeString(dateISOString) {
+  const options = {
+    year: 'numeric', month: 'short', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: 'Asia/Manila'
+  };
+  const date = new Date(dateISOString);
+  let phString = date.toLocaleString('en-US', options)
+    // Remove comma after month for cleaner format (Apr 15 2024, 3:22 PM)
+    .replace(/,/, '')
+    .replace(/(\d{2}) (.*)/, '$1, $2');
+  return phString;
+}
+window.addEventListener('DOMContentLoaded', function() {
+  // Main uploaded date
+  var up = document.getElementById('uploaded-date');
+  if (up && up.dataset.datetime) {
+    up.textContent = toPhilippineTimeString(up.dataset.datetime);
+  }
+  // Log timestamps
+  document.querySelectorAll('.log-timestamp').forEach(function(ts) {
+    if (ts.dataset.datetime) {
+      ts.textContent = toPhilippineTimeString(ts.dataset.datetime);
+    }
+  });
+});
+</script>
+{% endblock %}

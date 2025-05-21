@@ -1,0 +1,416 @@
+
+{% extends 'base.html' %}
+{% load dict_extras %}
+
+{% block title %}Exam Grading Periods{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="mb-4 fw-bold text-primary" style="font-size:2.8rem;">
+        <i class="bi bi-file-earmark-text"></i> Exams
+    </h1>
+    <div class="row g-4">
+        {% for period, stats in period_stats.items %}
+        <div class="col-12 col-sm-6 col-md-6 col-lg-6">
+            <div class="grading-period-card card position-relative d-flex flex-column h-100">
+                {% if stats.exam and stats.exam.locked and not is_admin %}
+                <div class="locked-overlay d-flex flex-column align-items-center justify-content-center">
+                    <i class="bi bi-lock-fill mb-3 text-light" style="font-size:2.8rem;"></i>
+                    <span class="locked-text text-light">Locked</span>
+                </div>
+                {% endif %}
+                <div class="card-body d-flex flex-column justify-content-between align-items-center p-5">
+                    <h3 class="card-title fw-semibold" style="font-size:2.1rem;"> {{ stats.label }}</h3>
+                    <p class="mb-2 theme-muted" style="font-size:1.35rem;">
+                        {% if stats.exam %}
+                            {% if stats.completed %}
+                                <i class="bi bi-journal-check me-1"></i>
+                                <span class="fw-medium">Exam Completed</span>
+                            {% else%}
+                                <i class="bi bi-journal-check me-1"></i>
+                                <span class="fw-medium">Exam is Ready</span>
+                            {% endif %}
+                        {% else %}
+                            <i class="bi bi-journal-x me-1"></i>
+                            <span class="fw-medium">No Exam Available</span>
+                        {% endif %}
+                    </p>
+
+                </div>
+                <div class="card-footer bg-white border-0 pt-0 pb-5 px-5">
+                    {% if is_admin %}
+                        <form method="post" action="{% url 'exams:toggle_period_lock' period %}" class="w-100 mt-1">
+                            {% csrf_token %}
+                            {% if stats.exam %}
+                            <button type="submit"
+                              class="btn btn-lg w-100 shadow-none mb-2 {% if stats.exam and stats.exam.locked %}btn-theme-primary{% else %}btn-theme-maroon-outline{% endif %}">
+                                <i class="bi {% if stats.exam and stats.exam.locked %}bi-unlock-fill{% else %}bi-lock-fill{% endif %} me-1"></i>
+                                <span style="font-size:1.18rem;">{% if stats.exam and stats.exam.locked %}Unlock Period{% else %}Lock Period{% endif %}</span>
+                            </button>
+                            {% endif %}
+                        </form>
+                        {% if not stats.exam %}
+                          <a href="{% url 'exams:create_exam' %}?grading_period={{ period }}"
+                             class="btn btn-lg w-100 shadow-none btn-theme-primary mb-2 mt-3 mb-2">
+                            <i class="bi bi-plus-circle me-1"></i>
+                            <span style="font-size:1.18rem;">Create Exam</span>
+                          </a>
+                        {% endif %}
+                    {% else %}
+                    {% endif %}
+
+                    {% if is_admin %}
+                        {% if stats.exam %}
+                            <a href="{% url 'exams:view_exam' stats.exam.id %}"
+                               class="btn btn-theme-primary btn-lg w-100" style="font-size:1.18rem;">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> View Exam
+                            </a>
+                        {% else %}
+                            <button class="btn btn-theme-muted btn-lg w-100" style="font-size:1.15rem;" disabled>
+                                No Exam Available
+                            </button>
+                        {% endif %}
+                    {% else %}
+                        {% if stats.exam and stats.exam.locked %}
+                            <button class="btn btn-theme-muted btn-lg w-100" style="font-size:1.15rem;" disabled>
+                                <i class="bi bi-lock-fill me-1"></i> Locked
+                            </button>
+                        {% elif stats.exam %}
+                            {% if stats.completed %}
+                                <button class="btn btn-success btn-lg w-100 mb-2" style="font-size:1.15rem;" disabled>
+                                    <i class="bi bi-check-circle me-1"></i> Completed
+                                </button>
+                                {% if stats.attempt_for_user and stats.attempt_for_user.id %}
+                                    <a href="{% url 'exams:exam_results' stats.attempt_for_user.id %}"
+                                       class="btn btn-theme-primary btn-lg w-100 mt-2" style="font-size:1.15rem;">
+                                        <i class="bi bi-bar-chart-steps me-1"></i> View Results
+                                    </a>
+                                {% endif %}
+                            {% else %}
+                                <button class="btn btn-theme-primary btn-lg w-100 exam-info-btn"
+                                    data-exam-id="{{ stats.exam.id }}"
+                                    data-period="{{ period }}"
+                                    data-title="{{ stats.exam.title|default:'Exam'|escapejs }}"
+                                    data-desc="{{ stats.exam.description|default:''|escapejs }}"
+                                    data-total="{{ stats.questions_count|default:0 }}"
+                                    data-overall-score="{{ stats.overall_score|default:0 }}"
+                                    data-passing-points="{{ stats.passing_score|default:0 }}"
+                                    data-passing-percent="{{ stats.passing_percent|default:0 }}"
+                                    data-has-fib="{{ stats.has_fib|default:'false' }}"
+                                    data-time="{{ stats.exam.time_limit|default:0 }}"
+                                    data-period-label="{{ stats.label|escapejs }}"
+                                    style="font-size:1.18rem;">
+                                    <i class="bi bi-box-arrow-in-right me-1"></i>
+                                    Take Exam
+                                </button>
+                            {% endif %}
+                        {% else %}
+                            <button class="btn btn-theme-muted btn-lg w-100" style="font-size:1.15rem;" disabled>
+                                
+                            </button>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Exam Info Modal -->
+<div class="modal fade custom-modal-modern" id="examInfoModal" tabindex="-1" aria-labelledby="examInfoModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content modern-modal-shadow">
+      <div class="modal-header px-4 py-3 bg-primary text-white border-0 rounded-top-4">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-info-circle" style="font-size:2rem;"></i>
+          <h4 class="modal-title fw-bold mb-0" id="examInfoModalLabel">Exam Information</h4>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" id="exmod-close"></button>
+      </div>
+      <div class="modal-body py-4 px-4">
+        <dl class="row gx-3 gy-2">
+          <dt class="col-6 text-end text-muted fw-semibold">Grading Period</dt>
+          <dd class="col-6" id="exmod-period"></dd>
+
+          <dt class="col-6 text-end text-muted fw-semibold">Description</dt>
+          <dd class="col-6" id="exmod-desc"></dd>
+
+          <dt class="col-6 text-end text-primary fw-bold">Total Questions</dt>
+          <dd class="col-6 fw-bold text-primary" id="exmod-total"></dd>
+          
+          <dt class="col-6 text-end text-primary fw-bold">Overall Score</dt>
+          <dd class="col-6 fw-bold text-primary" id="exmod-overall-score"></dd>
+
+          <dt class="col-6 text-end text-success fw-bold">Passing Score</dt>
+          <dd class="col-6 fw-bold text-success" id="exmod-score-abs"></dd>
+          
+          <dd class="col-6 text-muted" id="exmod-fib-note">Fill-in-Blank questions count as points × blanks</dd>
+
+          <dt class="col-6 text-end text-muted fw-semibold">Time Limit</dt>
+          <dd class="col-6" id="exmod-time"></dd>
+        </dl>
+      </div>
+      <div class="modal-footer bg-light border-0 pt-3 pb-4 rounded-bottom-4 justify-content-between">
+        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal" id="exmod-footer-close">
+          <i class="bi bi-x-circle me-1"></i> Close
+        </button>
+        <a href="#" id="exmod-take-link" class="btn btn-theme-primary px-4">
+            <i class="bi bi-play-circle me-1"></i> Start Exam
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% block js %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Bootstrap modal instance (ensure always hidden on close)
+    const modalEl = document.getElementById('examInfoModal');
+    const modal = new bootstrap.Modal(modalEl);
+
+    // Defensive backdrop cleaner, fix for sticky backdrops
+    function reallyCloseModal() {
+        modal.hide();
+        setTimeout(function() {
+            // Remove leftover .modal-backdrop manually, if any
+            document.querySelectorAll(".modal-backdrop").forEach(el => el.remove());
+            modalEl.classList.remove("show");
+            document.body.classList.remove("modal-open");
+            document.body.style.overflow = "";
+        }, 250);
+    }
+    // Attach to both close buttons
+    document.getElementById("exmod-close").onclick = reallyCloseModal;
+    document.getElementById("exmod-footer-close").onclick = reallyCloseModal;
+    modalEl.addEventListener('hidden.bs.modal', reallyCloseModal);
+
+    // Modal fields
+    const fields = {
+        period: document.getElementById('exmod-period'),
+        desc: document.getElementById('exmod-desc'),
+        total: document.getElementById('exmod-total'),
+        overallScore: document.getElementById('exmod-overall-score'),
+        scoreAbs: document.getElementById('exmod-score-abs'),
+        time: document.getElementById('exmod-time'),
+        fibNote: document.getElementById('exmod-fib-note')
+    };
+    let takeLink = document.getElementById('exmod-take-link');
+    let currentExamId = null;
+
+    document.querySelectorAll('.exam-info-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            fields.period.textContent = btn.getAttribute('data-period-label') || "";
+            fields.desc.textContent = btn.getAttribute('data-desc') || "";
+            fields.total.textContent = btn.getAttribute('data-total') || "0";
+            
+            // Overall score (total points available)
+            fields.overallScore.textContent = btn.getAttribute('data-overall-score') || "0";
+            
+            // Passing score in points and percentage
+            let absPoints = btn.getAttribute('data-passing-points') || "0";
+            let percent = btn.getAttribute('data-passing-percent') || "0";
+            fields.scoreAbs.textContent = absPoints + " (" + percent + "%)";
+            
+            // Show/hide FIB note based on if exam has FIB questions
+            const hasFib = btn.getAttribute('data-has-fib') === 'true';
+            fields.fibNote.style.display = hasFib ? 'block' : 'none';
+            let t = btn.getAttribute('data-time');
+            fields.time.textContent = t && t > 0 ? (t + ' min') : 'No limit';
+            currentExamId = btn.getAttribute('data-exam-id');
+            takeLink.href = '/exams/' + currentExamId + '/take/';
+            modal.show();
+        });
+    });
+
+    // Also close on backdrop click (in case of lingering backdrop issues)
+    modalEl.addEventListener('click', function(e) {
+        if (e.target === modalEl) reallyCloseModal();
+    });
+});
+</script>
+{% endblock %}
+
+<style>
+.custom-modal-modern .modal-content {
+    border-radius: 20px;
+    border: none;
+    padding: 0;
+    box-shadow: 0 10px 32px rgba(0,0,0,0.18), 0 4px 16px rgba(118, 39, 48, 0.08);
+    background: #fff;
+    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.custom-modal-modern .modal-header {
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    border-bottom: none;
+    /* The bg-primary and text-white styles stay; branding colors */
+}
+
+.custom-modal-modern .modal-footer {
+    border-bottom-right-radius: 20px;
+    border-bottom-left-radius: 20px;
+    padding-top: 18px;
+}
+
+.custom-modal-modern .modal-body {
+    font-size: 1.18rem;
+}
+
+/* DL modern spacing */
+.custom-modal-modern .row > dt {
+    text-align: right;
+    font-size: 1rem;
+}
+.custom-modal-modern .row > dd {
+    font-size: 1.10rem;
+    margin-bottom: 0.8em;
+}
+
+/* For modern labels and strong data */
+.custom-modal-modern dt.fw-bold, .custom-modal-modern dd.fw-bold {
+    font-size: 1.14em;
+}
+
+.custom-modal-modern i.bi {
+    color: #fff;
+}
+
+.btn-theme-maroon-outline {
+    font-size: 1.13rem;
+    font-weight: 600;
+    border-radius: 10px;
+    background: #fff;
+    color: #762730;
+    border: 2px solid #762730;
+    transition: background 0.15s, color 0.15s;
+    padding: 0.75rem 1.1rem;
+}
+.btn-theme-maroon-outline:hover,
+.btn-theme-maroon-outline:focus {
+    background: #762730;
+    color: #fff;
+}
+body {
+    background: var(--light-color);
+}
+.grading-period-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    position: relative;
+    transition: box-shadow 0.18s;
+}
+.grading-period-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+}
+.period-status i {
+    font-size: 1.15em;
+}
+.locked-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgb(118,39,48); /* match --light-color as overlay bg */
+    z-index: 10;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.locked-overlay .theme-danger,
+.locked-text {
+    color: var(--danger-color);
+}
+.locked-text {
+    font-weight: 600;
+    font-size: 2rem;
+    text-shadow: none;
+    letter-spacing: 1px;
+}
+.card-title {
+    font-size: 2.1rem;
+}
+.theme-muted {
+    color: #888 !important;
+}
+.theme-info {
+    background: var(--info-color) !important;
+    color: #fff;
+    font-weight: 500;
+}
+.theme-success {
+    color: var(--success-color) !important;
+}
+.theme-danger {
+    color: var(--danger-color) !important;
+}
+.btn-theme-primary, .btn-theme-danger, .btn-theme-success, .btn-theme-muted  {
+    font-size: 1.18rem;
+    padding: 0.9rem 1.05rem;
+    border-radius: 10px;
+}
+.btn-theme-primary {
+    background: var(--primary-color);
+    color: #fff;
+    border: none;
+    box-shadow: none;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: background 0.1s;
+}
+.btn-theme-primary:hover, .btn-theme-primary:focus {
+    background: var(--secondary-color);
+    color: #fff;
+}
+.btn-theme-success {
+    background: #d1fae5;
+    color: var(--success-color);
+    border: none;
+}
+.btn-theme-danger {
+    background: #fee2e2;
+    color: var(--danger-color);
+    border: none;
+}
+.btn-theme-muted {
+    background: #ececec;
+    color: #b0b0b0;
+    border: none;
+}
+.progress.theme-progress {
+    background: #ececec;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: none;
+}
+.progress-bar.theme-info {
+    background: var(--info-color);
+    color: #fff;
+    font-weight: 500;
+    border-radius: 8px 0 0 8px;
+    box-shadow: none;
+    font-size: 1.22rem;
+    line-height: 2.1;
+}
+@media (max-width: 575px) {
+    .grading-period-card .card-body {
+        padding: 1.6rem 1.1rem;
+    }
+    .card-title {
+        font-size: 1.3rem !important;
+    }
+    .locked-text {
+        font-size: 1.26rem !important;
+    }
+    .btn-theme-primary, .btn-theme-danger, .btn-theme-success, .btn-theme-muted  {
+        font-size: 1.04rem;
+        padding: 0.7rem 0.7rem;
+        border-radius: 8px;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,217 @@
+
+
+{% extends 'base.html' %}
+{% load dict_extras %}
+
+{% block title %}Grading Periods{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <h1 class="mb-4 fw-bold text-primary" style="font-size:2.8rem;">
+        <i class="bi bi-journal-bookmark-fill"></i> Lessons
+    </h1>
+    <div class="row g-4">
+        {% for value, label in periods %}
+        {% with stats=period_stats|get_item:value %}
+        <div class="col-12 col-sm-6 col-md-6 col-lg-6">
+            <div class="grading-period-card card position-relative d-flex flex-column h-100">
+                {% if stats.locked and not user.is_staff %}
+                <div class="locked-overlay d-flex flex-column align-items-center justify-content-center">
+                    <i class="bi bi-lock-fill mb-3 text-light" style="font-size:2.8rem;"></i>
+                    <span class="locked-text text-light">Locked</span>
+                </div>
+                {% endif %}
+                <div class="card-body d-flex flex-column justify-content-between align-items-center p-5">
+
+                    <h3 class="card-title fw-semibold" style="font-size:2.1rem;">{{ label }}</h3>
+                    <p class="mb-2 theme-muted" style="font-size:1.35rem;">
+                        <i class="bi bi-journal-bookmark me-1"></i>
+                        <span class="fw-medium">{{ stats.lesson_count|default:"0" }} Lessons</span>
+                    </p>
+                </div>
+                <div class="card-footer bg-white border-0 pt-0 pb-5 px-5">
+                    
+                    {% if user.is_staff %}
+                        <form method="post" action="{% url 'lessons:toggle_period_lock' value %}" class="w-100 mt-1">
+                            {% csrf_token %}
+                            <button type="submit"
+                              class="btn btn-lg w-100 shadow-none mb-2 {% if stats.locked %}btn-theme-primary{% else %}btn-theme-maroon-outline{% endif %}">
+                                <i class="bi {% if stats.locked %}bi-unlock-fill{% else %}bi-lock-fill{% endif %} me-1"></i>
+                                <span style="font-size:1.18rem;">{% if stats.locked %}Unlock Period{% else %}Lock Period{% endif %}</span>
+                            </button>
+                        </form>
+                    {% else %}
+                        <div class="w-100 mb-3 mt-3">
+                            <div class="progress theme-progress" style="height: 28px;">
+                                <div class="progress-bar theme-maroon d-flex align-items-center justify-content-center"
+                                     role="progressbar"
+                                     style="width: {{ stats.progress_percent|default:"0" }}%; font-size:1.18rem;"
+                                     aria-valuenow="{{ stats.progress_percent|default:"0" }}"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100">
+                                    {{ stats.progress_percent|default:"0" }}%
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    
+                    {% if stats.locked and not user.is_staff %}
+                      <button class="btn btn-theme-muted btn-lg w-100" style="font-size:1.15rem;" disabled>
+                        <i class="bi bi-lock-fill me-1"></i> Locked
+                      </button>
+                    {% else %}
+                      <a href="{% url 'lessons:lesson_list_by_period' value %}"
+                         class="btn btn-theme-primary btn-lg w-100" style="font-size:1.18rem;">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> View Lessons
+                      </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endwith %}
+        {% endfor %}
+    </div>
+</div>
+<style>
+
+.theme-maroon {
+    background: #762730 !important;
+    color: #fff;
+    font-weight: 500;
+}
+body {
+    background: var(--light-color);
+}
+.grading-period-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    position: relative;
+    transition: box-shadow 0.18s;
+}
+.grading-period-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+}
+.period-status i {
+    font-size: 1.15em;
+}
+.locked-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgb(118,39,48); /* match exam page overlay bg */
+    z-index: 10;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.locked-overlay .theme-danger,
+.locked-text {
+    color: var(--danger-color);
+}
+.locked-text {
+    font-weight: 600;
+    font-size: 2rem;
+    text-shadow: none;
+    letter-spacing: 1px;
+}
+.card-title {
+    font-size: 2.1rem;
+}
+.theme-muted {
+    color: #888 !important;
+}
+.theme-info {
+    background: var(--info-color) !important;
+    color: #fff;
+    font-weight: 500;
+}
+.theme-success {
+    color: var(--success-color) !important;
+}
+.theme-danger {
+    color: var(--danger-color) !important;
+}
+.btn-theme-maroon-outline {
+    font-size: 1.13rem;
+    font-weight: 600;
+    border-radius: 10px;
+    background: #fff;
+    color: #762730;
+    border: 2px solid #762730;
+    transition: background 0.15s, color 0.15s;
+    padding: 0.75rem 1.1rem;
+}
+.btn-theme-maroon-outline:hover,
+.btn-theme-maroon-outline:focus {
+    background: #762730;
+    color: #fff;
+}
+.btn-theme-primary, .btn-theme-danger, .btn-theme-success, .btn-theme-muted  {
+    font-size: 1.18rem;
+    padding: 0.9rem 1.05rem;
+    border-radius: 10px;
+}
+.btn-theme-primary {
+    background: var(--primary-color);
+    color: #fff;
+    border: none;
+    box-shadow: none;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: background 0.1s;
+}
+.btn-theme-primary:hover, .btn-theme-primary:focus {
+    background: var(--secondary-color);
+    color: #fff;
+}
+.btn-theme-success {
+    background: #d1fae5;
+    color: var(--success-color);
+    border: none;
+}
+.btn-theme-danger {
+    background: #fee2e2;
+    color: var(--danger-color);
+    border: none;
+}
+.btn-theme-muted {
+    background: #ececec;
+    color: #b0b0b0;
+    border: none;
+}
+.progress.theme-progress {
+    background: #ececec;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: none;
+}
+.progress-bar.theme-info {
+    background: var(--info-color);
+    color: #fff;
+    font-weight: 500;
+    border-radius: 8px 0 0 8px;
+    box-shadow: none;
+    font-size: 1.22rem;
+    line-height: 2.1;
+}
+@media (max-width: 575px) {
+    .grading-period-card .card-body {
+        padding: 1.6rem 1.1rem;
+    }
+    .card-title {
+        font-size: 1.3rem !important;
+    }
+    .locked-text {
+        font-size: 1.26rem !important;
+    }
+    .btn-theme-primary, .btn-theme-danger, .btn-theme-success, .btn-theme-muted  {
+        font-size: 1.04rem;
+        padding: 0.7rem 0.7rem;
+        border-radius: 8px;
+    }
+}
+</style>
+{% endblock %}

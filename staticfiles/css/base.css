@@ -1,0 +1,139 @@
+/* Base Styles */
+:root {
+  --primary-color: #762730;     /* Deep maroon */
+  --secondary-color: #92323d;   /* Lighter maroon with a warm tone */
+  --accent-color: #f7c59f;      /* Soft beige for highlight contrast */
+  --light-color: #fff;       /* Near-white with warm tint */
+  --dark-color: #2e1a17;        /* Very dark maroon for depth */
+  --success-color: #4caf50;     /* Natural green for success messages */
+  --danger-color: #c0392b;      /* Warm red for errors */
+  --warning-color: #e0a800;     /* Rich gold for warnings */
+  --info-color: #5bc0de;        /* Cool light blue for info */
+}
+
+
+  
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--dark-color);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 15px;
+  }
+
+  .bg-primary{
+    background-color: var(--primary-color) !important;
+
+  }
+  
+  .btn-primary{
+    background-color: var(--primary-color) !important;
+  }
+
+  .btn-primary:hover{
+    
+    background-color: var(--secondary-color) !important;
+  }
+
+  .text-primary{
+    color: var(--primary-color) !important;
+  }
+
+  #dark-mode-toggle, #dark-mode-toggle:active{
+    background-color: var(--primary-color) !important;
+
+  }
+
+  .btn-outline-primary {
+    --bs-btn-color: #762730 !important;
+    --bs-btn-border-color: #762730 !important;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: #762730 !important;
+    --bs-btn-hover-border-color: #762730 !important; 
+    --bs-btn-focus-shadow-rgb: 13, 110, 253;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: #762730 !important;
+    --bs-btn-active-border-color: #762730 !important;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    --bs-btn-disabled-color: #762730 !important;
+    --bs-btn-disabled-bg: transparent;
+    --bs-btn-disabled-border-color: #762730 !important;
+    --bs-gradient: none;
+}
+
+  
+  /* Header Styles */
+  header {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 1rem 0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  }
+  
+  /* Footer Styles */
+  footer {
+    background-color: var(--dark-color);
+    color: white;
+    padding: 1.5rem 0;
+    margin-top: auto;
+  }
+  
+  /* Button Styles */
+  .btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+  }
+  
+  .btn-primary:hover {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+  }
+  
+  /* Card Styles */
+  .card {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+  }
+  
+  .card:hover {
+    transform: translateY(-5px);
+  }
+  
+  /* Form Styles */
+  .form-control {
+    border-radius: 4px;
+    padding: 10px 15px;
+  }
+  
+  .form-control:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 0.25rem rgba(79, 195, 247, 0.25);
+  }
+  
+  /* Utility Classes */
+  .mt-6 {
+    margin-top: 4rem;
+  }
+  
+  .rounded-lg {
+    border-radius: 12px;
+  }
+  
+  .shadow-sm {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
+
+  /* NAV */
+.navbar{
+  background-color: transparent !important;
+}
+

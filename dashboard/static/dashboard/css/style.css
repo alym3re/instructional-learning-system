@@ -1,0 +1,68 @@
+/* Dashboard Layout */
+.dashboard-container {
+    padding-top: 20px;
+    padding-bottom: 40px;
+}
+
+/* Profile Card */
+.profile-card .progress {
+    background-color: #e9ecef;
+}
+
+/* Activity Feed */
+.activity-feed {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.activity-item {
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+/* Stats Cards */
+.card.bg-primary, 
+.card.bg-success, 
+.card.bg-info, 
+.card.bg-danger {
+    color: white;
+}
+
+.card.bg-primary .card-text,
+.card.bg-success .card-text,
+.card.bg-info .card-text,
+.card.bg-danger .card-text {
+    opacity: 0.8;
+}
+
+/* Chart Placeholder */
+.chart-placeholder {
+    border-radius: 5px;
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Quick Actions */
+.btn-outline-primary, 
+.btn-outline-info, 
+.btn-outline-danger, 
+.btn-outline-secondary {
+    text-align: left;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding-top: 10px;
+    }
+    
+    .stats-card {
+        margin-bottom: 15px;
+    }
+}

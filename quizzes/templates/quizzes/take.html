@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% load dict_extras %}
+
+
+{% block title %}Take Quiz - {{ quiz.title }}{% endblock %}
+
+{% block content %}
+<style>
+    :root {
+        --maroon: #762730;
+        --maroon-hover: #a32c2c;
+        --white: #fff;
+    }
+    .quiz-container {
+        max-width: 700px;
+        margin: auto;
+    }
+    .question-card {
+        border: 1px solid #ededed;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgb(128 0 0 / 0.05);
+    }
+    .btn-theme-maroon-outline {
+        font-size: 1.13rem;
+        font-weight: 600;
+        border-radius: 10px;
+        background: #fff;
+        color: var(--maroon);
+        border: 2px solid var(--maroon);
+        transition: background 0.15s, color 0.15s;
+        padding: 0.75rem 1.1rem;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 1px 2px rgba(128,0,0,0.10);
+    }
+    .btn-theme-maroon-outline:hover,
+    .btn-theme-maroon-outline:focus,
+    .btn-theme-maroon-outline.selected {
+        background: var(--maroon);
+        color: #fff;
+    }
+    .btn-theme-maroon-outline[aria-pressed="true"] {
+        background: var(--maroon);
+        color: #fff;
+    }
+    .choice-btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    .choice-btn-row {
+        display: flex;
+        gap: 1rem;
+        margin: 0;
+    }
+    .choice-btn-col-6 {
+        flex: 0 0 48%;
+        max-width: 48%;
+    }
+    .card-header {
+        background: #faf7f7;
+    }
+    .input-identification,
+    .input-blank {
+        border: 2px solid var(--maroon);
+        border-radius: 8px;
+        font-size: 1.1rem;
+        padding: 0.55rem 1.1rem;
+        width: 100%;
+        background: #fff;
+        color: #3c2323;
+        margin-top: 0.6rem;
+        margin-bottom: 0.3rem;
+        box-shadow: 0 1px 2px rgba(128,0,0,0.05);
+        transition: border 0.16s;
+    }
+    .input-identification:focus,
+    .input-blank:focus {
+        border-color: var(--maroon-hover);
+        background: #fff8f8;
+        outline: none;
+    }
+    .identification-label {
+        display: inline-block;
+        padding: 0.35rem 0.9rem;
+        font-weight: 500;
+        background: #fcede1;
+        border-radius: 5px;
+        margin-bottom: 0.1rem;
+        color: var(--maroon);
+    }
+    .quiz-info .card {
+        border-color: var(--maroon);
+    }
+    .badge.bg-info {
+        background: var(--maroon) !important;
+        color: #fff !important;
+        font-weight: 500;
+        font-size: 0.96rem;
+    }
+    .btn-primary {
+        background: var(--maroon);
+        border-color: var(--maroon);
+    }
+    .btn-primary:hover,
+    .btn-primary:focus {
+        background: var(--maroon-hover);
+        border-color: var(--maroon-hover);
+    }
+    .btn-secondary {
+        border-radius: 5px;
+    }
+    @media (max-width: 575px) {
+        .choice-btn-row {
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .choice-btn-col-6 {
+            max-width: 100%;
+            flex: 1 1 100%;
+        }
+    }
+</style>
+<div class="container quiz-container">
+    <h1 class="mb-4">{{ quiz.title }}</h1>
+    {% if quiz.description %}
+        <div class="alert alert-info mb-4">
+            {{ quiz.description }}
+        </div>
+    {% endif %}
+
+    <div class="quiz-info mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5>
+                            Time Remaining:
+                            <span id="time-remaining">
+                                {% if quiz.time_limit > 0 %}
+                                  {{ quiz.time_limit }}:00
+                                {% else %}
+                                  No limit
+                                {% endif %}
+                            </span>
+                        </h5>
+                    </div>
+                    <div>
+                        <h5>Questions: {{ questions|length }}</h5>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="post" id="quiz-form" autocomplete="off">
+        {% csrf_token %}
+        {% for question in questions %}
+        <div class="card mb-3 question-card">
+            <div class="card-header">
+                <h5>Question {{ forloop.counter }}</h5>
+                <span class="badge bg-info">
+                    {{ question.get_question_type_display|default:question.question_type|capfirst }}
+                </span>
+                <small class="text-muted">
+                    {% if question.question_type == "fill_in_the_blanks" %}
+                        {{ question.answers.all|length }} blank{{ question.answers.all|length|pluralize }}
+                        × {{ question.points }} = {{ question.answers.all|length|multiply:question.points }}
+                        pt{{ question.answers.all|length|multiply:question.points|pluralize }}
+                    {% else %}
+                        {{ question.points }} point{{ question.points|pluralize }}
+                    {% endif %}
+                </small>
+            </div>
+            <div class="card-body">
+                <p class="card-text"
+                   {% if question.question_type == "fill_in_the_blanks" %}
+                        data-fill-blanks="1"
+                        data-qid="{{ question.id }}"
+                   {% endif %}
+                >
+                    {{ question.text|safe }}
+                </p>
+                <div class="answers">
+                    {% if question.question_type == "multiple_choice" %}
+                        <div class="choice-btn-group">
+                        {% for answer in question.answers.all %}
+                            <button type="button"
+                               class="btn btn-theme-maroon-outline"
+                               data-qid="{{ question.id }}"
+                               data-ansid="{{ answer.id }}"
+                               aria-pressed="false"
+                               tabindex="0">
+                                {{ answer.text|title }}
+                            </button>
+                            <input type="radio" name="question_{{ question.id }}"
+                                   value="{{ answer.id }}" id="answer_{{ question.id }}_{{ answer.id }}"
+                                   style="display:none" required>
+                        {% endfor %}
+                        </div>
+                    {% elif question.question_type == "multiple_answer" %}
+                        <div class="choice-btn-group">
+                        {% for answer in question.answers.all %}
+                            <button type="button"
+                               class="btn btn-theme-maroon-outline"
+                               data-qid="{{ question.id }}"
+                               data-ansid="{{ answer.id }}"
+                               aria-pressed="false"
+                               tabindex="0"
+                               data-multians="1"
+                            >
+                                {{ answer.text|title }}
+                            </button>
+                            <input type="checkbox" name="question_{{ question.id }}"
+                                   value="{{ answer.id }}"
+                                   id="answer_{{ question.id }}_{{ answer.id }}"
+                                   style="display:none" >
+                        {% endfor %}
+                        </div>
+                    {% elif question.question_type == "true_false" %}
+                        <div class="choice-btn-row">
+                        {% for answer in question.answers.all %}
+                            <div class="choice-btn-col-6">
+                                <button type="button"
+                                   class="btn btn-theme-maroon-outline"
+                                   data-qid="{{ question.id }}"
+                                   data-ansid="{{ answer.id }}"
+                                   aria-pressed="false"
+                                   tabindex="0">
+                                    {{ answer.text|title }}
+                                </button>
+                                <input type="radio" name="question_{{ question.id }}"
+                                       value="{{ answer.id }}"
+                                       id="answer_{{ question.id }}_{{ answer.id }}"
+                                       style="display:none" required>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    {% elif question.question_type == "identification" %}
+                        <label class="identification-label" for="ident_{{ question.id }}">
+                            Type your answer below:
+                        </label>
+                        <input type="text"
+                               class="input-identification"
+                               id="ident_{{ question.id }}"
+                               name="question_{{ question.id }}_text"
+                               placeholder="Your answer here..."
+                               required autocomplete="off">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="d-flex justify-content-between mb-3">
+            <button type="submit" class="btn btn-primary btn-lg">Submit Quiz</button>
+            <a href="{% url 'quizzes:quiz_list_by_period' quiz.grading_period %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+{% if quiz.time_limit > 0 %}
+    let duration = {{ quiz.time_limit }} * 60; // Convert to seconds
+    const timerElement = document.getElementById('time-remaining');
+
+    function updateTimer() {
+        const minutes = Math.floor(duration / 60);
+        const seconds = duration % 60;
+        timerElement.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+        if (duration <= 0) {
+            document.getElementById('quiz-form').submit();
+        } else {
+            duration--;
+            setTimeout(updateTimer, 1000);
+        }
+
+        if (duration < 300) {
+            timerElement.classList.add('text-danger');
+            timerElement.classList.add('fw-bold');
+        }
+    }
+    updateTimer();
+{% endif %}
+
+// Choice button interactivity for single/multiple/multi-answer/true-false
+document.addEventListener('DOMContentLoaded', function () {
+    // Replace [blank] in fill-in-the-blanks questions with input fields
+    document.querySelectorAll('[data-fill-blanks]').forEach(function (el) {
+        let qid = el.getAttribute('data-qid');
+        let html = el.innerHTML;
+        
+        let blankCount = (html.match(/\[blank\]/gi) || []).length;
+        let blankIndex = 0;
+        
+        html = html.replace(/\[blank\]/gi, function() {
+            blankIndex++;
+            return "<input type='text' class='input-blank' name='question_" + qid + "_blank[]' " +
+                   "placeholder='Blank " + blankIndex + "' autocomplete='off' required " +
+                   "style='display: inline-block; width: 200px; margin: 3px;' />";
+        });
+        el.innerHTML = html;
+    });
+
+    // Single-selection choice button interactivity (radio)
+    document.querySelectorAll('.choice-btn-group').forEach(function(group) {
+        group.querySelectorAll('.btn-theme-maroon-outline:not([data-multians])').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                // Deselect all in the group
+                group.querySelectorAll('.btn-theme-maroon-outline').forEach(other => {
+                    other.classList.remove('selected');
+                    other.setAttribute('aria-pressed', 'false');
+                });
+                btn.classList.add('selected');
+                btn.setAttribute('aria-pressed', 'true');
+                // Activate hidden radio input
+                const ansId = btn.getAttribute('data-ansid');
+                const qid = btn.getAttribute('data-qid');
+                const radio = document.getElementById(`answer_${qid}_${ansId}`);
+                if (radio) {
+                    radio.checked = true;
+                }
+            });
+        });
+    });
+
+    // Multi-answer (checkboxes) support
+    document.querySelectorAll('.choice-btn-group').forEach(function(group) {
+        group.querySelectorAll('.btn-theme-maroon-outline[data-multians]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const ansId = btn.getAttribute('data-ansid');
+                const qid = btn.getAttribute('data-qid');
+                const checkbox = document.getElementById(`answer_${qid}_${ansId}`);
+                if (btn.classList.contains('selected')) {
+                    btn.classList.remove('selected');
+                    btn.setAttribute('aria-pressed', 'false');
+                    if (checkbox) checkbox.checked = false;
+                } else {
+                    btn.classList.add('selected');
+                    btn.setAttribute('aria-pressed', 'true');
+                    if (checkbox) checkbox.checked = true;
+                }
+            });
+        });
+    });
+
+    // True/False grid interactivity
+    document.querySelectorAll('.choice-btn-row').forEach(function(row) {
+        row.querySelectorAll('.btn-theme-maroon-outline').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                // Deselect all in the row
+                row.querySelectorAll('.btn-theme-maroon-outline').forEach(other => {
+                    other.classList.remove('selected');
+                    other.setAttribute('aria-pressed', 'false');
+                });
+                btn.classList.add('selected');
+                btn.setAttribute('aria-pressed', 'true');
+                // Activate hidden radio
+                const ansId = btn.getAttribute('data-ansid');
+                const qid = btn.getAttribute('data-qid');
+                const radio = document.getElementById(`answer_${qid}_${ansId}`);
+                if (radio) {
+                    radio.checked = true;
+                }
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

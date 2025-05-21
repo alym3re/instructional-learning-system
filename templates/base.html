@@ -1,0 +1,50 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Gamified Android Learning Application">
+    <meta name="theme-color" content="#762730">
+
+    <title>{% block title %}Gamified Android Learning Application{% endblock %}</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    <link rel="stylesheet" href="{% static 'css/pwa.css' %}">
+    {% block css %}{% endblock %}
+    <link rel="manifest" href="{% static 'manifest.json' %}">
+    <link rel="icon" href="{% static 'images/icons/icon-192x192.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'images/icons/icon-192x192.png' %}">
+
+
+</head>
+<body class="position-relative">
+
+    {% block navbar %}
+        {% include 'includes/navbar.html' %}
+    {% endblock %}
+
+    <main class="container mt-4">
+        {% include 'includes/messages.html' %}
+        {% block content %}{% endblock %}
+    </main>
+
+    <div id="install-container">
+        <button id="install-button" class="btn btn-primary">
+            <i class="bi bi-download text-light"></i>
+        </button>
+    </div>
+
+    <div class="offline-notification">
+        You are currently offline. Some features may not be available.
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <script src="{% static 'js/pwa.js' %}"></script>
+    <script src="{% static 'js/darkmode.js' %}"></script>
+
+    {% block js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,274 @@
+
+
+{% extends 'base.html' %}
+{% block title %}{{ grading_period_display }} Lessons{% endblock %}
+
+{% block content %}
+<div class="container lessons-container pt-5">
+    <div class="row mb-4">
+        <div class="col">
+            <h2 class="fw-bold text-primary" style="font-size:2.5rem; letter-spacing:0.5px;">{{ grading_period_display }} Lessons</h2>
+        </div>
+        {% if user.is_staff %}
+        <div class="col-auto d-flex align-items-center">
+            <a href="{% url 'lessons:upload_lesson' %}?grading_period={{ grading_period }}" class="btn btn-primary btn-lg d-flex align-items-center">
+                <i class="bi bi-plus-lg me-2" style="font-size:1.5rem;"></i>
+                <span style="font-size:1.17rem;">Add Lesson</span>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="row">
+        {% for lesson in page_obj %}
+            {% if not lesson.is_archived %}
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="lesson-card card grading-period-card position-relative d-flex flex-column h-100 p-0">
+
+                <div class="card-body d-flex flex-column justify-content-between align-items-center p-4">
+                    <h4 class="card-title fw-semibold mb-3 mt-2 text-center" style="font-size:1.65rem; min-height:3.2rem;">{{ lesson.title }}</h4>
+                    <p class="card-text theme-muted text-center mb-3" style="font-size:1.15rem;">
+                        {{ lesson.description|truncatewords:20 }}
+                    </p>
+                </div>
+                <div class="card-footer bg-white border-0 pt-0 pb-4 px-4">
+                    <div class="d-flex flex-column gap-2">
+                        <a href="{% url 'lessons:view_lesson' lesson.slug %}"
+                            class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center"
+                            style="font-size:1.05rem;">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> View Lesson
+                        </a>
+                        {% if user.is_staff %}
+                            <a href="{% url 'lessons:lesson_edit' lesson.slug %}" class="btn btn-outline-primary btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;">
+                                <i class="bi bi-pencil-square me-1"></i> Edit
+                            </a>
+                            <form method="post" action="{% url 'lessons:lesson_archive' lesson.slug %}" class="archive-form">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-primary btn-lg w-100 d-flex align-items-center justify-content-center js-archive-btn" style="font-size:1.05rem;">
+                                    <i class="bi bi-archive me-1"></i> Archive
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            </div>
+            {% endif %}
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info" style="font-size:1.18rem; padding:1.2rem 1.6rem;">
+                No lessons found for this grading period.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if user.is_staff %}
+  
+    <!-- Archived Lessons Container -->
+    <div class="mt-5">
+        <h3 class="fw-bold text-secondary mb-4" style="font-size:2rem;">Archived Lessons</h3>
+        <div class="row">
+            {% for lesson in page_obj %}
+            {% if lesson.is_archived %}
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="lesson-card card grading-period-card border-0 shadow-sm position-relative d-flex flex-column h-100 p-0 bg-light">
+                    <div class="card-body d-flex flex-column justify-content-between align-items-center p-4">
+                        <h4 class="card-title fw-semibold mb-3 mt-2 text-center" style="font-size:1.65rem; min-height:3.2rem; opacity:0.7;">{{ lesson.title }}</h4>
+                        <p class="card-text theme-muted text-center mb-3" style="font-size:1.15rem; opacity:0.7;">
+                            {{ lesson.description|truncatewords:20 }}
+                        </p>
+                    </div>
+                    <div class="card-footer bg-white border-0 pt-0 pb-4 px-4">
+                        <div class="d-flex flex-column gap-2">
+                            <a href="{% url 'lessons:lesson_edit' lesson.slug %}" class="btn btn-outline-primary btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;">
+                                <i class="bi bi-pencil-square me-1"></i> Edit
+                            </a>
+                            <form method="post" action="{% url 'lessons:lesson_unarchive' lesson.slug %}" class="unarchive-form">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-primary btn-lg w-100 d-flex align-items-center justify-content-center js-unarchive-btn" style="font-size:1.05rem;">
+                                    <i class="bi bi-arrow-up-circle me-1"></i> Unarchive
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'lessons:lesson_delete' lesson.slug %}" class="delete-form">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger btn-lg w-100 d-flex align-items-center justify-content-center js-delete-btn" style="font-size:1.05rem;" onclick="return confirm('Are you sure you want to permanently remove this lesson?');">
+                                    <i class="bi bi-trash me-1"></i> Remove
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Lessons pagination" class="mt-5">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link btn-lg" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+            </li>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active"><span class="page-link btn-lg">{{ num }}</span></li>
+            {% else %}
+            <li class="page-item">
+                <a class="page-link btn-lg" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link btn-lg" href="?page={{ page_obj.next_page_number }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+<style>
+/* Use theme and latest sizing */
+body {
+    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.grading-period-card,
+.lesson-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    position: relative;
+    transition: box-shadow 0.18s;
+}
+.grading-period-card:hover,
+.lesson-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.13);
+    transform: translateY(-3px) scale(1.02);
+}
+.lesson-thumbnail {
+    width: 100%;
+    min-height: 11rem;
+    max-height: 17rem;
+    object-fit: cover;
+}
+.theme-muted {
+    color: #888 !important;
+}
+
+.btn-primary, .btn-warning, .btn-outline-primary, .btn-success, .btn-danger {
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: background 0.1s, color 0.1s;
+    padding: 0.85rem 1.3rem;
+}
+
+.btn-primary {
+    background: #762730;
+    color: #fff !important;
+    border: none;
+}
+
+.btn-primary:hover {
+    background: #fff !important ;
+    color: #762730 !important; 
+    border: #762730 2px solid;
+}
+
+.btn-warning {
+    background: var(--warning-color);
+    color: #fff !important;
+    border: none;
+}
+
+.btn-warning:hover {
+    background: #fff3cd;
+    color: var(--warning-color) !important;
+    border: 2px solid var(--warning-color);
+}
+
+.btn-outline-primary {
+    background: #fff;
+    color: #762730 !important;
+    border: 2px solid #762730 !important;
+}
+
+.btn-outline-primary:hover {
+    background: #762730 !important;
+    color: #fff !important;
+}
+
+.btn-success {
+    background: #4caf50;
+    color: #fff !important;
+    border: none;
+}
+
+.btn-success:hover {
+    background: #3f9142;
+    color: #fff !important;
+}
+
+.btn-danger {
+    background: #c0392b;
+    color: #fff !important;
+    border: none;
+}
+
+.btn-danger:hover {
+    background: #e57373;
+    color: #fff !important;
+}
+
+
+.page-link.btn-lg {
+    font-size: 1.17rem;
+    min-width: 2.9rem;
+    padding: 0.7em 1.1em;
+}
+.card-title {
+    font-size: 1.65rem;
+}
+.card-text {
+    font-size: 1.15rem;
+}
+@media (max-width: 575px) {
+    .card-title {
+        font-size: 1.13rem !important;
+    }
+    .btn-primary, .btn-warning, .btn-outline-primary, .btn-success, .btn-danger, .page-link.btn-lg {
+        font-size: 1.02rem;
+        padding: 0.62em 0.7em;
+    }
+    .card-text {
+        font-size: 1.002rem !important;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function ajaxArchive(form, onDone) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.ok ? location.reload() : alert('Archive failed.'))
+        });
+    }
+    document.querySelectorAll('.archive-form').forEach(form => ajaxArchive(form));
+    document.querySelectorAll('.unarchive-form').forEach(form => ajaxArchive(form));
+});
+</script>
+
+{% endblock %}

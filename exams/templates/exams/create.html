@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Exam{% endblock %}
+
+{% block content %}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-10 col-lg-8">
+            <div class="card border-0 shadow-sm grading-period-card">
+                <div class="card-body p-5 d-flex flex-column align-items-center">
+                    <h2 class="card-title fw-bold text-primary mb-4" style="font-size:2.2rem;">
+                        <i class="bi bi-plus-circle me-1"></i> Create Exam
+                    </h2>
+
+                    {% if grading_period_label %}
+                        <div class="alert alert-info mb-4 w-100 text-center py-2">
+                            <strong>Selected Grading Period:</strong>
+                            <span style="font-size:1.25rem; margin-left:4px;">{{ grading_period_label }}</span>
+                        </div>
+                    {% endif %}
+
+                    <form method="post" action="" class="w-100 mt-3" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        {# Hide 'title' and 'grading_period' fields, fill title programmatically #}
+                        {% for field in form %}
+                            {% if field.name == "title" %}
+                                <input type="hidden" name="title" value="{{ grading_period_label }} Exam">
+                            {% elif field.name == "grading_period" %}
+                                <input type="hidden" name="grading_period" value="{{ grading_period }}">
+                            {% else %}
+                                <div class="mb-3">
+                                    <label for="{{ field.id_for_label }}" class="form-label fw-medium">{{ field.label }}</label>
+                                    {{ field }}
+                                    {% if field.help_text %}
+                                        <div class="form-text">{{ field.help_text }}</div>
+                                    {% endif %}
+                                    {% for error in field.errors %}
+                                        <div class="text-danger small">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+
+                        <div class="d-flex gap-3 mt-4">
+                            <button type="submit" class="btn btn-theme-primary btn-lg px-4">
+                                <i class="bi bi-check-circle me-1"></i> Create
+                            </button>
+                            <a href="{% url 'exams:grading_period_exam_list' %}" class="btn btn-secondary btn-lg px-4">
+                                <i class="bi bi-arrow-left me-1"></i> Back to Exams
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+body {
+    background: var(--light-color);
+}
+.grading-period-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    position: relative;
+    transition: box-shadow 0.18s;
+}
+.grading-period-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+}
+.card-title {
+    font-size: 2.1rem;
+}
+.theme-muted {
+    color: #888 !important;
+}
+.btn-theme-primary {
+    background: var(--primary-color);
+    color: #fff;
+    border: none;
+    box-shadow: none;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: background 0.1s;
+}
+.btn-theme-primary:hover, .btn-theme-primary:focus {
+    background: var(--secondary-color);
+    color: #fff;
+}
+.btn-theme-info {
+    background: var(--info-color) !important;
+    color: #fff;
+    font-weight: 500;
+}
+.btn-secondary {
+    background: #ececec;
+    color: #222;
+    font-weight: 500;
+}
+@media (max-width: 575px) {
+    .grading-period-card .card-body {
+        padding: 1.6rem 1.1rem !important;
+    }
+    .card-title {
+        font-size: 1.3rem !important;
+    }
+    .btn-theme-primary, .btn-theme-info, .btn-secondary {
+        font-size: 1.04rem;
+        padding: 0.7rem 0.7rem;
+        border-radius: 8px;
+    }
+}
+</style>
+{% endblock %}

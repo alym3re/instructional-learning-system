@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ lesson.title }} - Read{% endblock %}
+
+{% block content %}
+<div class="container lesson-view-container pt-5">
+    <!-- Breadcrumb Navigation (styled same as view.html) -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb fs-5 bg-white rounded p-3 theme-shadow" style="--bs-breadcrumb-divider: '›';">
+            <li class="breadcrumb-item">
+                <a href="{% url 'lessons:grading_period_list' %}" class="breadcrumb-link app-brand">Grading Periods</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'lessons:lesson_list_by_period' lesson.grading_period %}" class="breadcrumb-link app-brand">
+                    {{ lesson.get_grading_period_display }}
+                </a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'lessons:view_lesson' lesson.slug %}" class="breadcrumb-link app-brand">
+                    {{ lesson.title }}
+                </a>
+            </li>
+            <li class="breadcrumb-item active app-brand" aria-current="page">Read</li>
+        </ol>
+    </nav>
+
+    <h2 class="mb-4">{{ lesson.title }} <span class="badge bg-info text-light ms-2" style="font-size:1.1rem;">Read Mode</span></h2>
+    <div class="lesson-file-reader bg-white p-4 theme-shadow rounded">
+
+        {% with ext=lesson.extension %}
+            {% if ext == ".pdf" %}
+                <iframe
+                    src="https://docs.google.com/gview?embedded=true&url={{ file_absolute_url }}"
+                    frameborder="0" width="100%" height="700px"
+                    style="border:1px solid #eee;border-radius:8px;">
+                    This browser does not support PDFs. Please download the file to view it:
+                    <a href="{{ file_absolute_url }}">Download PDF</a>.
+                </iframe>
+            {% elif ext == ".docx" or ext == ".doc" %}
+                {% if lesson.html_content %}
+                    <div class="converted-docx-html" style="min-height:500px;">
+                        {{ lesson.html_content|safe }}
+                    </div>
+                {% endif %}
+            {% elif ext == ".pptx" %}
+                <!-- PPTXJS Integration centered, no file-input -->
+                <div class="d-flex justify-content-center align-items-center" style="min-height:70vh;">
+                    <div id="your_div_id_result" style="width: 100%; height: 80vh; min-height:450px; background:#222; border-radius:10px; color:#FFF; overflow:auto; display:flex; align-items:center; justify-content:center;">
+                        Loading PowerPoint file...
+                    </div>
+                </div>
+                <!-- Required CSS -->
+                <link rel="stylesheet" href="{% static 'css/pptxjs.css' %}">
+                <link rel="stylesheet" href="{% static 'css/nv.d3.min.css' %}"> <!-- for charts graphs -->
+
+                <!-- Required JS for pptxjs -->
+                <script type="text/javascript" src="{% static 'js/jquery-1.11.3.min.js' %}"></script>
+                <script type="text/javascript" src="{% static 'js/jszip.min.js' %}"></script>
+                <script type="text/javascript" src="{% static 'js/filereader.js' %}"></script>
+                <script type="text/javascript" src="{% static 'js/d3.min.js' %}"></script>
+                <script type="text/javascript" src="{% static 'js/nv.d3.min.js' %}"></script>
+                <script type="text/javascript" src="{% static 'js/dingbat.js' %}"></script>
+                <script type="text/javascript" src="{% static 'js/pptxjs.js' %}"></script>
+                <script type="text/javascript" src="{% static 'js/divs2slides.js' %}"></script>
+                <!-- Initialize PPTXJS on the result div -->
+                <script type="text/javascript">
+                  // Wait for full page and scripts load
+                  window.addEventListener('DOMContentLoaded', function() {
+                    function tryRenderPptx(tried) {
+                        if (window.$ && typeof $("#your_div_id_result").pptxToHtml === "function") {
+                            // Dynamically calculate slidesScale based on container width
+                            const containerWidth = document.getElementById('your_div_id_result').offsetWidth;
+                            const slidesScale = containerWidth / 960; // Assuming 960px is the default slide width
+
+                            $("#your_div_id_result").pptxToHtml({
+                                pptxFileUrl: "{{ lesson.file.url|escapejs }}",
+                                slidesScale: slidesScale, // Dynamically scale slides
+                                slideMode: false,
+                                keyBoardShortCut: false,
+                                mediaProcess: true,
+                                jsZipV2: "{% static 'js/jszip.min.js' %}",
+                                themeProcess: true,
+                                incSlide: {height: 2, width: 2},
+                                slideType: "divs2slidesjs"
+                            });
+                        } else if (tried < 12) {
+                            setTimeout(function(){ tryRenderPptx(tried+1); }, 400);
+                        } else {
+                            document.getElementById('your_div_id_result').innerHTML =
+                              "<div class='text-light p-3'>Error loading PPTX viewer. One or more JS libraries did not load. Please check static files or browser console for errors.</div>";
+                        }
+                    }
+                    tryRenderPptx(0);
+                  });
+                </script>
+                <!--/ END PPTXJS Integration Section -->
+            {% else %}
+                <div class="alert alert-info">Preview not available for this file type. Please download the file instead.</div>
+            {% endif %}
+        {% endwith %}
+    </div>
+</div>
+{% endblock %}
+
+{% block css %}
+<style>
+
+.converted-docx-html img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.lesson-view-container {
+    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+/* --- Centered PPTX viewer adjustments --- */
+.d-flex.justify-content-center.align-items-center {
+    min-height: 70vh;
+}
+#your_div_id_result {
+    margin: 0 auto;
+}
+/* --- BREADCRUMB --- */
+.app-brand, .breadcrumb .breadcrumb-link, .breadcrumb-item.active.app-brand {
+    color: var(--primary-color) !important;
+    text-decoration: none !important;
+    background: none !important;
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    transition: border-bottom 0.15s;
+}
+.breadcrumb .breadcrumb-link:hover, .breadcrumb .breadcrumb-link:focus {
+    border-bottom: 2px solid var(--primary-color);
+}
+.breadcrumb-item.active.app-brand {
+    color: var(--secondary-color) !important;
+    border-bottom: none;
+    font-weight: bold;
+}
+/* --- CARD --- */
+.lesson-card,
+.grading-period-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    transition: box-shadow 0.18s;
+}
+.lesson-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+    transform: translateY(-3px) scale(1.01);
+}
+/* --- UTILITIES --- */
+.theme-shadow {
+    box-shadow: 0 1px 8px rgba(86, 113, 156,.10) !important;
+}
+.theme-muted {
+    color: #888 !important;
+}
+/* BUTTONS */
+.btn-theme-primary {
+    background: var(--primary-color);
+    color: #fff !important;
+    border: none;
+    box-shadow: none;
+    letter-spacing: .01em;
+    transition: background 0.1s;
+    font-size: 1.09rem;
+    padding: 0.95rem 1.25rem;
+    border-radius: 10px;
+    font-weight: 600;
+}
+.btn-theme-primary:hover, .btn-theme-primary:focus {
+    background: var(--secondary-color);
+    color: #fff !important;
+}
+.btn-outline-secondary.btn-lg {
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1.09rem;
+    padding: 0.95rem 1.25rem;
+}
+.form-label {
+    font-size:1.11rem;
+}
+.form-control, .form-select {
+    font-size:1.09rem;
+    padding: .55rem .9rem;
+    border-radius:8px;
+    min-height: 43px;
+}
+.form-control:focus, .form-select:focus {
+    box-shadow: 0 2px 7px rgba(86, 113, 156, 0.12);
+}
+.invalid-feedback.d-block {
+    font-size: 0.95rem;
+    color: #f44336;
+}
+.form-check-input {
+    width: 1.2em;
+    height: 1.2em;
+    margin-top: 0.25em;
+    margin-right: 0.5em;
+    border-radius: 0.3em;
+}
+.form-check-label {
+    font-size:1.08rem;
+}
+
+.form-check-input:checked {
+    background-color: #762730;
+    border-color: #762730;
+}
+
+@media (max-width: 767px) {
+    .lesson-card,
+    .grading-period-card {
+        margin-bottom: 2rem;
+    }
+    h2 {
+        font-size: 1.4rem !important;
+    }
+    .btn-theme-primary {
+        font-size: 0.97rem;
+        padding: 0.72rem 0.8rem;
+    }
+}
+</style>
+{% endblock %}

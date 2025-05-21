@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Your Exam History</h2>
+<table class="table">
+  <tr>
+    <th>Exam</th>
+    <th>Period</th>
+    <th>Score</th>
+    <th>Status</th>
+    <th>Taken</th>
+    <th>Actions</th>
+  </tr>
+  {% for attempt in page_obj %}
+    <tr>
+      <td>{{ attempt.exam.title }}</td>
+      <td>{{ attempt.exam.get_grading_period_display }}</td>
+      <td>{{ attempt.score|default:"-" }}</td>
+      <td>{% if attempt.completed %}Completed{% else %}In Progress{% endif %}</td>
+      <td>{{ attempt.start_time|date:"SHORT_DATETIME_FORMAT" }}</td>
+      <td>
+        <a href="{% url 'exams:exam_results' attempt.id %}">Results</a>
+      </td>
+    </tr>
+  {% empty %}
+    <tr>
+      <td colspan="6">No attempts yet.</td>
+    </tr>
+  {% endfor %}
+</table>
+<div class="pagination">
+  {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}">&laquo; Prev</a>
+  {% endif %}
+  <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}">Next &raquo;</a>
+  {% endif %}
+</div>
+{% endblock %}

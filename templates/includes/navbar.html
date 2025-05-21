@@ -1,0 +1,163 @@
+{% load static %}
+
+<header>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top shadow-sm app-navbar-plus">
+    <div class="container py-1">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'index' %}">
+            <img src="{% static 'images/logo.png' %}" alt="Logo" width="38" height="38" class="d-inline-block align-top rounded bg-white shadow-sm">
+            <span class="fw-bold fs-4" style="letter-spacing:0.5px;">GALA</span>
+        </a>
+        <button class="navbar-toggler ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+            <ul class="navbar-nav mb-2 mb-lg-0 ms-lg-4 ms-auto gap-lg-2">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
+                </li>
+                {% if user.is_authenticated and user.is_staff %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'students:student_list' %}">Students</a>
+                </li>
+                {% endif %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'lessons:grading_period_list' %}">Lessons</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'quizzes:grading_period_list' %}">Quizzes</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'exams:grading_period_exam_list' %}">Exams</a>
+                </li>
+            </ul>
+            <div class="d-flex align-items-center ms-lg-4 gap-2 flex-nowrap mt-2 mt-lg-0">
+                {% if user.is_authenticated %}
+                <div class="dropdown d-flex align-items-center">
+                    <button class="btn btn-outline-light d-flex align-items-center dropdown-toggle profile-btn" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <!-- Profile picture fetched using user.profile_pic, consistent with profile.html -->
+                        {% if user.profile_pic %}
+                            <img src="{{ user.profile_pic.url }}" alt="Profile" width="36" height="36" class="rounded-circle border border-3 border-white me-2" style="object-fit:cover;">
+                        {% else %}
+                            <img src="{% static 'images/default-avatar.png' %}" alt="Profile" width="36" height="36" class="rounded-circle border border-3 border-white me-2" style="object-fit:cover;">
+                        {% endif %}
+                        <span class="fw-semibold">
+                            {% if user.first_name %}
+                                {{ user.first_name }}
+                            {% else %}
+                                {{ user.username }}
+                            {% endif %}
+                        </span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg animate-dropdown">
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center" href="{% url 'accounts:profile' %}">
+                                Profile
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item d-flex align-items-center" href="{% url 'accounts:logout' %}">
+                                Logout
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                {% else %}
+                <a href="{% url 'accounts:login' %}" class="btn btn-outline-light me-2">Login</a>
+                <a href="{% url 'accounts:register' %}" class="btn btn-light">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</nav>
+</header>
+<style>
+.app-navbar-plus {
+    background: var(--primary-color) !important;
+    letter-spacing: 0.02em;
+    z-index: 1040 !important;
+    box-shadow: 0 2px 12px 0 rgba(86,113,156,0.07), 0 1.5px 3.5px rgba(86,113,156,.05);
+}
+.navbar-brand img {
+    box-shadow: 0 0.7px 8px 0 rgba(110, 52, 78, 0.07);
+    background: #fff;
+}
+.navbar-nav .nav-link {
+    border-radius: 8px;
+    font-size: 1.16rem;
+    font-weight: 500;
+    color: #fff !important;
+    padding: .58em 1.16em;
+    margin: 0 .16em;
+    transition: background 0.11s, color 0.14s;
+}
+.navbar-nav .nav-link:hover, .navbar-nav .nav-link:focus, .navbar-nav .nav-link.active {
+    background: var(--secondary-color);
+    color: #ffeede !important;
+    text-decoration: none;
+}
+.profile-btn {
+    padding: 0.25em 0.65em;
+    font-size: 1.08rem;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.09);
+    font-weight: 500;
+}
+.profile-btn img {
+    margin-right: .5em;
+    box-shadow: 0 1.5px 7px 0 rgba(86, 30, 50, 0.08);
+}
+.dropdown-menu.animate-dropdown {
+    animation: fadeInDown .21s cubic-bezier(.39,.58,.57,1.1);
+}
+@keyframes fadeInDown {
+    from {opacity:0; transform:translateY(-15px);}
+    to {opacity:1; transform:translateY(0);}
+}
+.dropdown-menu .dropdown-item {
+    font-size: 1.09rem;
+    padding: 0.62em 1.01em;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+}
+.dropdown-menu .dropdown-item:hover, .dropdown-menu .dropdown-item:focus {
+    background: var(--primary-color);
+    color: #fff;
+}
+.navbar .btn-outline-light, .navbar .btn-light {
+    font-size: 1.08rem;
+    border-radius: 7px;
+    padding: 0.45em 1.1em;
+}
+body {
+    padding-top: 70px; /* Add or adjust this value to match your navbar height (may need tweak) */
+}
+@media (max-width: 991.98px) {
+    .navbar-collapse.justify-content-end {
+        justify-content: flex-end !important;
+        text-align: right;
+    }
+    .navbar-nav {
+        align-items: flex-end !important;
+    }
+    .navbar-nav .nav-link {
+        width: 100%;
+        text-align: right;
+        margin-right: 0;
+    }
+    .app-navbar-plus .dropdown-menu-end[style] {
+        left: auto !important;
+        right: 1.2rem !important;
+    }
+}
+@media (max-width: 575.98px) {
+    .navbar-brand span {
+        font-size: 1.11rem !important;
+    }
+    .profile-btn {
+        font-size: .98rem;
+    }
+}
+</style>

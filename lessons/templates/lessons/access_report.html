@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Lesson Access Log{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <h2>Lesson Access Log (Admin Only)</h2>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Lesson</th>
+                <th>Access Type</th>
+                <th>Date/Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in access_logs %}
+            <tr>
+                <td>{{ log.user.get_full_name|default:log.user.username }}</td>
+                <td>{{ log.lesson.title }}</td>
+                <td>{{ log.access_type|capfirst }}</td>
+                <td>{{ log.timestamp|date:"M d, Y H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">No access logs yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

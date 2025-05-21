@@ -1,0 +1,247 @@
+
+{% extends 'base.html' %}
+{% block title %}
+    {% if form.instance.pk %}Edit Lesson{% else %}Upload Lesson{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="container lesson-view-container pt-5">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb fs-5 bg-white rounded p-3 theme-shadow" style="--bs-breadcrumb-divider: '›';">
+            <li class="breadcrumb-item">
+                <a href="{% url 'lessons:grading_period_list' %}" class="breadcrumb-link app-brand">Grading Periods</a>
+            </li>
+            {% if grading_period_display and grading_period %}
+            <li class="breadcrumb-item app-brand">
+                <a href="{% url 'lessons:lesson_list_by_period' grading_period %}" class="breadcrumb-link app-brand">
+                    {{ grading_period_display }}
+                </a>
+            </li>
+            {% endif %}
+            <li class="breadcrumb-item active app-brand" aria-current="page">
+                {% if form.instance.pk %}Edit Lesson{% else %}Upload Lesson{% endif %}
+            </li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="lesson-card card grading-period-card border-0 shadow-sm mb-5">
+                <div class="card-header bg-white pb-3 pt-4 px-4 border-0">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap">
+                        <h2 class="mb-0 fw-bold" style="font-size:2.1rem; line-height:1.1;">
+                            {% if form.instance.pk %}Edit Lesson{% else %}Upload New Lesson{% endif %}
+                        </h2>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" enctype="multipart/form-data" novalidate>
+                        {% csrf_token %}
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger mb-3">{{ form.non_field_errors }}</div>
+                        {% endif %}
+
+                        <!-- TITLE -->
+                        <div class="mb-3">
+                            <label for="{{ form.title.id_for_label }}" class="form-label fw-medium">Title</label>
+                            <input
+                                type="text"
+                                name="{{ form.title.name }}"
+                                id="{{ form.title.id_for_label }}"
+                                value="{{ form.title.value|default_if_none:'' }}"
+                                class="form-control"
+                                maxlength="200"
+                                required
+                            >
+                            {% if form.title.errors %}
+                                <div class="invalid-feedback d-block">{{ form.title.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- DESCRIPTION -->
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label fw-medium">
+                                Description <span class="theme-muted" style="font-size:0.98rem;"></span>
+                            </label>
+                            <textarea
+                                name="{{ form.description.name }}"
+                                id="{{ form.description.id_for_label }}"
+                                class="form-control"
+                                rows="5"
+                                required
+                            >{{ form.description.value|default_if_none:'' }}</textarea>
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback d-block">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- GRADING PERIOD (force as form-select) -->
+                        <div class="mb-3">
+                            <label for="{{ form.grading_period.id_for_label }}" class="form-label fw-medium">Grading Period</label>
+                            <select
+                                name="{{ form.grading_period.name }}"
+                                id="{{ form.grading_period.id_for_label }}"
+                                class="form-select"
+                                required
+                            >
+                                {% for option in form.grading_period.field.choices %}
+                                    <option value="{{ option.0 }}"
+                                        {% if option.0 == form.grading_period.value %}selected{% endif %}
+                                    >{{ option.1 }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if form.grading_period.errors %}
+                                <div class="invalid-feedback d-block">{{ form.grading_period.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- FILE INPUTS (force as form-control) -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.file.id_for_label }}" class="form-label fw-medium">Lesson File</label>
+                                <input
+                                    type="file"
+                                    name="{{ form.file.name }}"
+                                    id="{{ form.file.id_for_label }}"
+                                    class="form-control"
+                                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                >
+                                <small class="text-muted">Only .pdf, .doc, .docx files are allowed.</small>
+                                {% if form.file.errors %}
+                                    <div class="invalid-feedback d-block">{{ form.file.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                        </div>
+
+                        <!-- FEATURE THIS LESSON CHECKBOX (manual, modern UI) -->
+
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-theme-primary btn-lg d-flex align-items-center justify-content-center gap-1">
+                                <i class="bi bi-upload me-1"></i>
+                                {% if form.instance.pk %}Update Lesson{% else %}Upload Lesson{% endif %}
+                            </button>
+                            <a href="{% url 'lessons:grading_period_list' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block css %}
+<style>
+.lesson-view-container {
+    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+/* --- BREADCRUMB --- */
+.app-brand, .breadcrumb .breadcrumb-link, .breadcrumb-item.active.app-brand {
+    color: var(--primary-color) !important;
+    text-decoration: none !important;
+    background: none !important;
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    transition: border-bottom 0.15s;
+}
+.breadcrumb .breadcrumb-link:hover, .breadcrumb .breadcrumb-link:focus {
+    border-bottom: 2px solid var(--primary-color);
+}
+.breadcrumb-item.active.app-brand {
+    color: var(--secondary-color) !important;
+    border-bottom: none;
+    font-weight: bold;
+}
+/* --- CARD --- */
+.lesson-card,
+.grading-period-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    transition: box-shadow 0.18s;
+}
+.lesson-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+    transform: translateY(-3px) scale(1.01);
+}
+/* --- UTILITIES --- */
+.theme-shadow {
+    box-shadow: 0 1px 8px rgba(86, 113, 156,.10) !important;
+}
+.theme-muted {
+    color: #888 !important;
+}
+/* BUTTONS */
+.btn-theme-primary {
+    background: var(--primary-color);
+    color: #fff !important;
+    border: none;
+    box-shadow: none;
+    letter-spacing: .01em;
+    transition: background 0.1s;
+    font-size: 1.09rem;
+    padding: 0.95rem 1.25rem;
+    border-radius: 10px;
+    font-weight: 600;
+}
+.btn-theme-primary:hover, .btn-theme-primary:focus {
+    background: var(--secondary-color);
+    color: #fff !important;
+}
+.btn-outline-secondary.btn-lg {
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1.09rem;
+    padding: 0.95rem 1.25rem;
+}
+.form-label {
+    font-size:1.11rem;
+}
+.form-control, .form-select {
+    font-size:1.09rem;
+    padding: .55rem .9rem;
+    border-radius:8px;
+    min-height: 43px;
+}
+.form-control:focus, .form-select:focus {
+    box-shadow: 0 2px 7px rgba(86, 113, 156, 0.12);
+}
+.invalid-feedback.d-block {
+    font-size: 0.95rem;
+    color: #f44336;
+}
+.form-check-input {
+    width: 1.2em;
+    height: 1.2em;
+    margin-top: 0.25em;
+    margin-right: 0.5em;
+    border-radius: 0.3em;
+}
+.form-check-label {
+    font-size:1.08rem;
+}
+
+.form-check-input:checked {
+    background-color: #762730;
+    border-color: #762730;
+}
+
+@media (max-width: 767px) {
+    .lesson-card,
+    .grading-period-card {
+        margin-bottom: 2rem;
+    }
+    h2 {
+        font-size: 1.4rem !important;
+    }
+    .btn-theme-primary {
+        font-size: 0.97rem;
+        padding: 0.72rem 0.8rem;
+    }
+}
+</style>
+{% endblock %}

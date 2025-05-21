@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Edit Quiz - {{ quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-10 col-lg-8">
+            <div class="card border-0 shadow-sm grading-period-card">
+                <div class="card-body p-5 d-flex flex-column align-items-center">
+                    <h2 class="card-title fw-bold text-primary mb-4" style="font-size:2.2rem;">
+                        <i class="bi bi-pencil-square me-1"></i> Edit Quiz: {{ quiz.title }}
+                    </h2>
+                    
+                    {% if form.errors %}
+                        <div class="alert alert-danger w-100 text-center mb-4">
+                            <strong>Please correct the errors below.</strong>
+                        </div>
+                    {% endif %}
+
+                    <form method="post" enctype="multipart/form-data" class="w-100 mt-3">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label fw-medium">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+
+                        <div class="d-flex gap-3 mt-4">
+                            <button type="submit" class="btn btn-theme-primary btn-lg px-4">
+                                <i class="bi bi-check-circle me-1"></i> Save Changes
+                            </button>
+                            <a href="{% url 'quizzes:view_quiz' quiz.id %}" class="btn btn-secondary btn-lg px-4">
+                                <i class="bi bi-arrow-left me-1"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+body {
+    background: var(--light-color);
+}
+.grading-period-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    position: relative;
+    transition: box-shadow 0.18s;
+}
+.grading-period-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+}
+.card-title {
+    font-size: 2.1rem;
+}
+.theme-muted {
+    color: #888 !important;
+}
+.btn-theme-primary {
+    background: var(--primary-color);
+    color: #fff;
+    border: none;
+    box-shadow: none;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: background 0.1s;
+}
+.btn-theme-primary:hover, .btn-theme-primary:focus {
+    background: var(--secondary-color);
+    color: #fff;
+}
+.btn-theme-info {
+    background: var(--info-color) !important;
+    color: #fff;
+    font-weight: 500;
+}
+.btn-secondary {
+    background: #ececec;
+    color: #222;
+    font-weight: 500;
+}
+@media (max-width: 575px) {
+    .grading-period-card .card-body {
+        padding: 1.6rem 1.1rem !important;
+    }
+    .card-title {
+        font-size: 1.3rem !important;
+    }
+    .btn-theme-primary, .btn-theme-info, .btn-secondary {
+        font-size: 1.04rem;
+        padding: 0.7rem 0.7rem;
+        border-radius: 8px;
+    }
+}
+</style>
+{% endblock %}
+

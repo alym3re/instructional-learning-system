@@ -1,0 +1,584 @@
+{% extends 'base.html' %}
+{% load exams_extras %}
+
+{% block title %}Add Questions to {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <!-- Add Question Form -->
+        <div class="col-12 col-lg-6 mb-4">
+            <div class="card question-form-card border-0 shadow-sm grading-period-card">
+                <div class="card-header bg-white pb-3 pt-4 px-4 border-0">
+                    <h2 class="mb-0 fw-bold" style="font-size:2rem; color:var(--primary-color)">
+                        <i class="bi bi-plus-circle me-2"></i> Add New Question
+                    </h2>
+                </div>
+                <div class="card-body px-4 pt-3 pb-5">
+                    {% if error %}
+                        <div class="alert alert-danger mb-3">
+                            <strong>{{ error }}</strong>
+                        </div>
+                    {% endif %}
+                    <div id="client-warning" class="alert alert-danger" style="display:none;"></div>
+                    <form method="post" id="question-form" autocomplete="off">
+                        {% csrf_token %}
+                        {% for field in question_form %}
+                            <div class="form-group mb-3" id="form-group-{{ field.name }}">
+                                <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.help_text %}
+                                    <div class="form-text theme-muted">{{ field.help_text }}</div>
+                                {% endif %}
+                                {% if field.errors %}
+                                    <div class="text-danger theme-danger small mt-1">
+                                        {% for error in field.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+
+                        <!-- Identification Override -->
+                        <div id="identification-answer-section" style="display: none;">
+                            <label for="id_correct_answer" class="form-label fw-semibold">Correct Answer <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control input-identification" name="correct_answer" id="id_correct_answer" maxlength="500" autocomplete="off" value="{{ request.POST.correct_answer|default:'' }}" placeholder="e.g. Byzantium">
+                        </div>
+
+                        <!-- Fill-in-the-blanks -->
+                        <div id="fill-blanks-answers-section" style="display: none;">
+                            <div class="input-group mb-3">
+                                <button type="button" class="btn btn-theme-maroon-outline" id="add-blank-btn"><i class="bi bi-ui-radios me-1"></i>Add Blank</button>
+                                <small class="form-text theme-muted d-block mt-1">Click to insert [blank] at cursor position</small>
+                            </div>
+                            <div id="blanks-answers-container" class="mt-3">
+                                <h6>Answers for Blanks</h6>
+                                <small class="form-text theme-muted">Provide answers for each blank in the question text. Each blank is worth the question's points value.</small>
+                                <div id="blanks-answers-inputs"></div>
+                            </div>
+                        </div>
+
+                        <!-- Formset for Multiple Choice, etc. -->
+                        <div id="answer-formset-section">
+                            <h6 class="mt-4 mb-2 fw-semibold">Answers</h6>
+                            {% if answer_formset.non_form_errors %}
+                                <div class="alert alert-danger mb-3">
+                                    {% for error in answer_formset.non_form_errors %}
+                                            {{ error }}<br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            {{ answer_formset.management_form }}
+                            <div id="answers-container">
+                                {% for form in answer_formset %}
+                                    <div class="answer-form mb-3 p-2 border rounded {% if form.errors %}border-danger{% endif %}">
+                                        {{ form.id }}
+                                        <div class="form-check mb-2">
+                                            {{ form.is_correct }}
+                                            <label class="form-check-label fw-medium" for="{{ form.is_correct.id_for_label }}">
+                                                Correct Answer
+                                            </label>
+                                        </div>
+                                        {{ form.text }}
+                                        {% if form.text.errors %}
+                                            <div class="text-danger small">
+                                                {% for error in form.text.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="d-flex gap-3 mt-4">
+                            <button type="submit" class="btn btn-theme-primary btn-lg flex-grow-1">
+                                <i class="bi bi-plus-circle me-1"></i> Add Question
+                            </button>
+                            <a href="{% url 'exams:grading_period_exam_list' %}" class="btn btn-theme-muted btn-lg flex-grow-1">
+                                <i class="bi bi-list-task me-1"></i> Back to Exams
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- Existing Questions List -->
+        <div class="col-12 col-lg-6 mb-4">
+            <div class="card exam-questions-list-card grading-period-card border-0 shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center px-4 pt-4 pb-3 border-0">
+                    <h4 class="fw-semibold mb-0" style="font-size:1.25rem">
+                        <i class="bi bi-kanban me-2"></i>
+                        Exam Questions <span class="badge bg-info ms-2">{{ questions|length }}</span>
+                    </h4>
+                    <a href="{% url 'exams:grading_period_exam_list' %}" class="btn btn-theme-success">
+                        <i class="bi bi-check-circle me-1"></i> Finish
+                    </a>
+                </div>
+                <div class="card-body pt-3 px-4 pb-5">
+                    <div id="questions-list">
+                        {% for question in questions %}
+                        <div class="question-item mb-4 p-3 grading-period-card shadow-sm">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div>
+                                    <strong>Q{{ forloop.counter }}:</strong>
+                                    <span class="theme-muted ms-1">{{ question.text|truncatewords:10 }}</span>
+                                    <span class="badge bg-info ms-2">{{ question.get_question_type_display }}</span>
+                                    {% if question.question_type == 'fill_in_the_blanks' %}
+                                        <span class="badge bg-secondary ms-2">
+                                            {{ question.answers.count }} blank{{ question.answers.count|pluralize }} × {{ question.points }} = {{ question.answers.count|multiply:question.points }} pt{{ question.answers.count|multiply:question.points|pluralize }}
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary ms-2">{{ question.points }} pt{{ question.points|pluralize }}</span>
+                                    {% endif %}
+                                </div>
+                                <form method="post" action="{% url 'exams:delete_exam_question' exam.id question.id %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger rounded-2 px-3">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                            <div class="answers mt-2 ms-3">
+                                {% for answer in question.answers.all %}
+                                    <span class="badge {% if answer.is_correct %}bg-success{% else %}bg-light text-dark{% endif %}">
+                                        {{ answer.text|truncatewords:3 }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                            {% if question.explanation %}
+                                <div class="mt-2 small theme-muted ms-3">{{ question.explanation }}</div>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <div class="alert alert-info">No questions added yet.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block css %}
+<style>
+/* Core styles inspired by take.html and grading_period_exam_list.html */
+
+body {
+    background: var(--light-color) !important;
+    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.question-form-card, .grading-period-card, .exam-questions-list-card, .card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    position: relative;
+    transition: box-shadow 0.18s;
+}
+.question-form-card:hover, .grading-period-card:hover, .exam-questions-list-card:hover, .card:hover, .question-item:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.11);
+    transform: scale(1.01);
+}
+.card-header {
+    background: #faf7f7;
+    border-bottom: none;
+}
+.card-title, .card-header h2, .card-header h4, h4, h2 {
+    color: var(--primary-color, #762730);
+    font-weight: 700;
+}
+.theme-muted {
+    color: #888 !important;
+}
+.theme-info {
+    color: var(--info-color, #3bc9db) !important;
+}
+.btn, .btn-theme-primary, .btn-theme-success, .btn-theme-muted  {
+    font-size: 1.05rem;
+    padding: 0.92rem 1.18rem;
+    border-radius: 10px;
+    font-weight: 600;
+}
+.btn-theme-primary {
+    background: var(--primary-color, #762730);
+    color: #fff !important;
+    border: none;
+    box-shadow: none;
+    letter-spacing: .01em;
+    transition: background 0.1s;
+}
+.btn-theme-primary:hover, .btn-theme-primary:focus {
+    background: var(--secondary-color, #a32c2c);
+    color: #fff !important;
+}
+.btn-theme-success {
+    background: #d1fae5 !important;
+    color: var(--success-color, #15803d) !important;
+    border: none;
+}
+.btn-theme-muted {
+    background: #ececec !important;
+    color: #b0b0b0 !important;
+    border: none;
+}
+.btn-danger {
+    background: #fee2e2 !important;
+    color: var(--danger-color,#b91c1c) !important;
+    border: none;
+}
+.btn-sm {
+    font-size: 0.95rem;
+    padding: 0.45rem 0.8rem;
+    border-radius: 7px;
+}
+.input-identification, .form-control {
+    border-radius: 8px;
+    font-size: 1.08rem;
+    padding: 0.60rem 1.1rem;
+    width: 100%;
+    background: #fff;
+    color: #3c2323;
+    margin-top: 0.3rem;
+    margin-bottom: 0.3rem;
+    box-shadow: 0 1px 2px rgba(128,0,0,0.03);
+    transition: border 0.16s;
+}
+.input-identification:focus, .form-control:focus {
+    border-color: var(--secondary-color, #a32c2c);
+    background: #fff8f8;
+    outline: none;
+}
+.answer-form {
+    background: #fcfcfd;
+    box-shadow: 0 1px 6px rgba(76,138,191,0.06);
+    border-radius: 11px;
+    border: 1.2px solid #f0f0f4;
+}
+.answer-form.border-danger { border-color: #fee2e2; }
+.badge {
+    border-radius: 7px;
+    padding: 0.38em 0.95em;
+    font-size: 1.02em;
+    font-weight: 500;
+}
+.badge.bg-info, .badge.bg-maroon {
+    background: var(--primary-color, #762730) !important;
+    color: #fff !important;
+    font-weight: 500;
+}
+.badge.bg-success { background: #d1fae5 !important; color: var(--success-color, #15803d) !important; }
+.badge.bg-secondary { background: #ececec !important; color: #444 !important; }
+.badge.bg-light { background: #f3f3f3 !important; color: #888 !important; border: 1px solid #eee; }
+.alert-info {
+    background: #e0f1fb;
+    color: #4790b8;
+}
+@media (max-width: 991px) {
+    .pt-5, .pb-5 { padding-top: 2rem !important; padding-bottom: 2rem !important; }
+}
+@media (max-width: 767px) {
+    .container, .container.py-5 {
+        padding-left: 0.4rem !important;
+        padding-right: 0.4rem !important;
+    }
+    h1, h2, h4 { font-size: 1.36rem !important; }
+    .card-body, .card-header { padding-left: 1rem !important; padding-right: 1rem !important; }
+    .card-body { padding-top: 1.2rem !important; padding-bottom: 1.2rem !important; }
+}
+
+</style>
+{% endblock %}
+
+{% block js %}
+<script>
+// Utility to make true/false answer forms just like in quizzes app
+function renderTrueFalseAnswers(container, mgmtForm) {
+    // Clear out container
+    container.innerHTML = "";
+
+    // True answer
+    const trueDiv = document.createElement('div');
+    trueDiv.className = 'answer-form mb-3 p-2 border rounded';
+    trueDiv.innerHTML = `
+        <input type="hidden" name="answers-0-id" id="id_answers-0-id">
+        <div class="form-check mb-2">
+            <input type="checkbox" name="answers-0-is_correct" id="id_answers-0-is_correct" class="form-check-input">
+            <label class="form-check-label" for="id_answers-0-is_correct">Correct Answer</label>
+        </div>
+        <input type="text" name="answers-0-text" value="True" readonly class="form-control" id="id_answers-0-text">
+    `;
+
+    // False answer
+    const falseDiv = document.createElement('div');
+    falseDiv.className = 'answer-form mb-3 p-2 border rounded';
+    falseDiv.innerHTML = `
+        <input type="hidden" name="answers-1-id" id="id_answers-1-id">
+        <div class="form-check mb-2">
+            <input type="checkbox" name="answers-1-is_correct" id="id_answers-1-is_correct" class="form-check-input">
+            <label class="form-check-label" for="id_answers-1-is_correct">Correct Answer</label>
+        </div>
+        <input type="text" name="answers-1-text" value="False" readonly class="form-control" id="id_answers-1-text">
+    `;
+
+    container.appendChild(trueDiv);
+    container.appendChild(falseDiv);
+
+    // Update formset management form
+    document.getElementById('id_answers-TOTAL_FORMS').value = 2;
+}
+
+function setAnswerSectionVisibility(qtype) {
+    const answerSection = document.getElementById('answer-formset-section');
+    const identificationSection = document.getElementById('identification-answer-section');
+    if (qtype === 'identification') {
+        answerSection.style.display = 'none';
+        identificationSection.style.display = 'block';
+    } else {
+        identificationSection.style.display = 'none';
+        answerSection.style.display = 'block';
+    }
+}
+
+function updateAnswerSection() {
+    const qtype = document.getElementById('id_question_type').value;
+    setAnswerSectionVisibility(qtype);
+    const addBtn = document.getElementById('add-answer-btn');
+    const answersContainer = document.getElementById('answers-container');
+    const mgmtForm = document.querySelector('#answer-formset-section .management-form');
+
+    if (qtype === 'true_false') {
+        // Show only two static, prefilled answer inputs for true/false
+        if (addBtn) addBtn.style.display = 'none';
+        renderTrueFalseAnswers(answersContainer, mgmtForm);
+        attachSingleCheckboxSelect('#answers-container');
+    } else if (qtype === 'fill_in_the_blanks') {
+        document.getElementById('fill-blanks-answers-section').style.display = 'block';
+        document.getElementById('answer-formset-section').style.display = 'none';
+        document.getElementById('identification-answer-section').style.display = 'none';
+        updateBlankAnswerFields(); // Update blank answer fields based on current text
+    } else {
+        // For all other question types
+        if (addBtn) addBtn.style.display = 'inline-block';
+        document.getElementById('fill-blanks-answers-section').style.display = 'none';
+
+        // If coming from a previous true_false, re-render server-side formset fields
+        // Do nothing here, forms are rendered by Django and not altered
+        attachSingleCheckboxSelect('#answers-container');
+    }
+}
+
+// Ensure only one checkbox checked at a time in answers container
+function attachSingleCheckboxSelect(containerQuery) {
+    // Detach all previous listeners (defensive)
+    const container = document.querySelector(containerQuery);
+    if (!container) return;
+
+    // Remove old listeners and add a named event handler
+    // We'll use event delegation to simplify for dynamic forms
+    container.removeEventListener('change', window._singleCBHandler, true);
+    window._singleCBHandler = function(event) {
+        // Only respond to is_correct checkboxes
+        const target = event.target;
+        if (
+            target &&
+            target.matches("input[type='checkbox'][name$='-is_correct']")
+        ) {
+            // Uncheck all boxes except the just-checked one if checked
+            if (target.checked) {
+                const cbs = container.querySelectorAll("input[type='checkbox'][name$='-is_correct']");
+                cbs.forEach(function(cb) {
+                    if (cb !== target) {
+                        cb.checked = false;
+                    }
+                });
+            }
+        }
+    };
+    container.addEventListener('change', window._singleCBHandler, true);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const questionTypeSelect = document.getElementById('id_question_type');
+    if (questionTypeSelect) {
+        questionTypeSelect.addEventListener('change', updateAnswerSection);
+        updateAnswerSection();
+    }
+    
+    // Attach single-checkbox handler on answers-container after page load
+    attachSingleCheckboxSelect('#answers-container');
+
+    // Add answer fields for non-True/False as in quizzes app
+    const addButton = document.getElementById('add-answer-btn');
+    if (addButton) {
+        addButton.addEventListener('click', function() {
+            const qtype = document.getElementById('id_question_type').value;
+            if (qtype === 'true_false' || qtype === 'identification') {
+                return; // Cannot add more answers
+            }
+            const totalForms = document.getElementById('id_answers-TOTAL_FORMS');
+            const container = document.getElementById('answers-container');
+            let formNum = parseInt(totalForms.value);
+
+            const newForm = document.createElement('div');
+            newForm.className = 'answer-form mb-3 p-2 border rounded';
+            newForm.innerHTML = `
+                <input type="hidden" name="answers-${formNum}-id" id="id_answers-${formNum}-id">
+                <div class="form-check mb-2">
+                    <input type="checkbox" name="answers-${formNum}-is_correct" id="id_answers-${formNum}-is_correct" class="form-check-input">
+                    <label class="form-check-label" for="id_answers-${formNum}-is_correct">Correct Answer</label>
+                </div>
+                <input type="text" name="answers-${formNum}-text" class="form-control" id="id_answers-${formNum}-text">
+            `;
+            container.appendChild(newForm);
+            formNum++;
+            totalForms.value = formNum;
+            
+            // Re-attach single checkbox handler after adding new form
+            attachSingleCheckboxSelect('#answers-container');
+        });
+    }
+
+    // Client side validation
+    const questionForm = document.getElementById('question-form');
+    questionForm.addEventListener('submit', function(event) {
+        const qtype = document.getElementById('id_question_type').value;
+        let warning = "";
+        let preventSubmit = false;
+        const warningDiv = document.getElementById('client-warning');
+        warningDiv.style.display = 'none';
+        warningDiv.innerHTML = "";
+        
+        if (qtype === 'identification') {
+            const answerInput = document.getElementById('id_correct_answer');
+            if (!answerInput.value.trim()) {
+                warning = "Correct answer cannot be blank for Identification type.";
+                preventSubmit = true;
+            }
+        } else if (qtype === 'fill_in_the_blanks') {
+            // Check if there are any blanks in the question
+            const blanksCount = (document.getElementById('id_text').value.match(/\[blank\]/g) || []).length;
+            if (blanksCount === 0) {
+                warning = "Fill-in-the-blanks questions must contain at least one [blank].";
+                preventSubmit = true;
+            } else {
+                // Check if all blank answers are filled
+                const blankAnswers = document.querySelectorAll('#blanks-answers-inputs input');
+                for (let i = 0; i < blankAnswers.length; i++) {
+                    if (!blankAnswers[i].value.trim()) {
+                        warning = `Please provide an answer for Blank ${i+1}.`;
+                        preventSubmit = true;
+                        break;
+                    }
+                }
+            }
+        } else {
+            // For multiple choice and true/false
+            let isCorrectChecked = false;
+            const answerSection = document.getElementById('answers-container');
+            if (answerSection) {
+                const checkboxes = answerSection.querySelectorAll('input[type="checkbox"],input[type="radio"]');
+                for (let box of checkboxes) {
+                    if (box.checked) {
+                        isCorrectChecked = true;
+                        break;
+                    }
+                }
+            }
+            if (!isCorrectChecked) {
+                warning = "Please choose a correct answer before adding the question.";
+                preventSubmit = true;
+            }
+        }
+        if (preventSubmit) {
+            event.preventDefault();
+            warningDiv.style.display = 'block';
+            warningDiv.innerHTML = warning;
+            return false;
+        }
+    });
+
+    const addBlankBtn = document.getElementById('add-blank-btn');
+    const questionTextArea = document.getElementById('id_text');
+    const blanksAnswersInputs = document.getElementById('blanks-answers-inputs');
+
+    if (addBlankBtn && questionTextArea) {
+        addBlankBtn.addEventListener('click', function () {
+            // Insert [blank] at the cursor position in the textarea
+            const cursorPos = questionTextArea.selectionStart;
+            const textBefore = questionTextArea.value.substring(0, cursorPos);
+            const textAfter = questionTextArea.value.substring(cursorPos);
+            questionTextArea.value = `${textBefore}[blank]${textAfter}`;
+            questionTextArea.focus();
+            questionTextArea.selectionStart = questionTextArea.selectionEnd = cursorPos + 7; // Move cursor after [blank]
+
+            // Update the answers input fields
+            updateBlankAnswerFields();
+        });
+
+        questionTextArea.addEventListener('input', function() {
+            // If fill_in_the_blanks is selected, update the answer fields
+            if (document.getElementById('id_question_type').value === 'fill_in_the_blanks') {
+                updateBlankAnswerFields();
+            }
+        });
+        
+        // Also update when points value changes
+        const pointsField = document.getElementById('id_points');
+        if (pointsField) {
+            pointsField.addEventListener('input', function() {
+                if (document.getElementById('id_question_type').value === 'fill_in_the_blanks') {
+                    updateBlankAnswerFields();
+                }
+            });
+        }
+    }
+
+    // Function to update blank answer fields
+    function updateBlankAnswerFields() {
+        if (!blanksAnswersInputs) return;
+        
+        // Count the number of [blank] placeholders in the question text
+        const blanksCount = (questionTextArea.value.match(/\[blank\]/g) || []).length;
+
+        // Clear the answers container
+        blanksAnswersInputs.innerHTML = '';
+
+        // Generate input fields for each blank
+        for (let i = 0; i < blanksCount; i++) {
+            const answerDiv = document.createElement('div');
+            answerDiv.className = 'form-group mb-2';
+            answerDiv.innerHTML = `
+                <label for="blank-answer-${i}">Answer for Blank ${i + 1}</label>
+                <input type="text" class="form-control" name="blank_answers[]" id="blank-answer-${i}" 
+                       placeholder="Answer for Blank ${i + 1}" required>
+            `;
+            blanksAnswersInputs.appendChild(answerDiv);
+        }
+        
+        // Update the points display if there are blanks
+        if (blanksCount > 0) {
+            const pointsField = document.getElementById('id_points');
+            const pointsValue = parseInt(pointsField.value) || 1;
+            const totalPoints = blanksCount * pointsValue;
+            
+            // Add or update the points info display
+            let pointsInfo = document.getElementById('blanks-points-info');
+            if (!pointsInfo) {
+                pointsInfo = document.createElement('div');
+                pointsInfo.id = 'blanks-points-info';
+                pointsInfo.className = 'alert alert-info mt-2';
+                blanksAnswersInputs.parentNode.appendChild(pointsInfo);
+            }
+            pointsInfo.innerHTML = `<strong>${blanksCount} blank${blanksCount !== 1 ? 's' : ''} × ${pointsValue} = ${totalPoints} point${totalPoints !== 1 ? 's' : ''} total</strong>`;
+        } else {
+            // Remove the points info if no blanks
+            const pointsInfo = document.getElementById('blanks-points-info');
+            if (pointsInfo) pointsInfo.remove();
+        }
+    }
+});
+</script>
+{% endblock %}

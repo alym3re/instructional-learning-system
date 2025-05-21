@@ -1,0 +1,334 @@
+
+{% extends 'base.html' %}
+{% load exams_extras %}
+{% load percentage_extras %}
+{% block title %}Exam Results - {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="container quiz-view-container pt-5">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <!-- Summary Card -->
+            <div class="quiz-summary-card card border-0 shadow-lg mb-5 px-1 py-3" style="border-radius:18px;">
+                <div class="d-flex justify-content-end m-2">
+                    <span class="badge {% if attempt.passed %}bg-success{% else %}bg-danger{% endif %} fs-5 px-4 py-2" style="font-size:1.07rem;">
+                        {% if attempt.passed %}Passed{% else %}Failed{% endif %}
+                    </span>
+                </div>
+                <div class="card-header bg-transparent border-0 pb-0 px-4 pt-3">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap">
+                        <h2 class="mb-0 fw-bold" style="font-size:2.1rem;">
+                            <i class="bi bi-award me-2"></i>Exam Results: {{ exam.title }}
+                        </h2>
+                    </div>
+                </div>
+                <div class="card-body p-4 pt-2">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-12">
+                            <div class="info-block mb-2 pb-2">
+                                <div class="mb-2 text-muted"><strong>Date Taken:</strong></div>
+                                <div>
+                                    <span class="local-time fs-5" data-datetime="{{ attempt.start_time|date:"c" }}">
+                                        {{ attempt.start_time|date:"M d, Y H:i" }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 summary-details-section">
+                            <div class="row">
+                                <div class="col-6 stat-tile">
+                                    <div class="sm-label">Passing Score</div>
+                                    <div class="stat-value">
+                                        {% if attempt.total_points %}
+                                            {% widthratio exam.passing_score 100 attempt.total_points as passing_points %}
+                                            {{ passing_points|floatformat:0 }} / {{ attempt.total_points|floatformat:0 }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-6 stat-tile">
+                                    <div class="sm-label">Passing Score (%)</div>
+                                    <div class="stat-value">{{ exam.passing_score|smart_percent }}%</div>
+                                </div>
+                                <div class="col-6 stat-tile">
+                                    <div class="sm-label">Your Score</div>
+                                    <div class="stat-value">
+                                        {% if attempt.raw_points is not None and attempt.total_points %}
+                                            <span class="accent">{{ attempt.raw_points|floatformat:0 }}</span> / {{ attempt.total_points|floatformat:0 }}
+                                        {% else %}
+                                            <span class="accent">N/A</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="col-6 stat-tile">
+                                    <div class="sm-label">Your Score (%)</div>
+                                    <div class="stat-value accent">{{ attempt.score|smart_percent }}%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Questions Review Card -->
+            <div class="quiz-card card grading-period-card border-0 shadow-sm mb-5">
+                <div class="card-header bg-white pb-2 pt-3 px-4 border-0">
+                    <h4 class="fw-semibold mb-0" style="font-size:1.35rem;">
+                        <i class="bi bi-question-circle me-2"></i>Question Review
+                    </h4>
+                </div>
+                <div class="card-body p-4">
+                    {% for user_answer in user_answers %}
+                        {% with question=user_answer.question %}
+                            <div class="card mb-4 {% if user_answer.is_correct %}border-success{% else %}border-danger{% endif %}">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-1">Question {{ forloop.counter }}</h5>
+                                    <span class="badge bg-info mb-2">{{ question.get_question_type_display }}</span>
+                                    <div class="mb-1">{{ question.text }}</div>
+                                </div>
+                                <div class="card-body">
+                                    <p class="mb-1"><strong>Your Answer:</strong>
+                                        {% if user_answer.selected_answers.all|length %}
+                                            {% for ans in user_answer.selected_answers.all %}
+                                                <span class="badge bg-secondary">{{ ans.text }}</span>
+                                            {% endfor %}
+                                        {% elif user_answer.text_answer and question.is_fill_in_the_blanks %}
+                                            {% with raw_answer=user_answer.text_answer|default_if_none:"" %}
+                                                {% if raw_answer|is_python_list_string %}
+                                                    {# Handle legacy python list-string: "['1','2','3']" #}
+                                                    {% with clean1=raw_answer|cut:"["|cut:"]" %}
+                                                    {% with user_blanks=clean1|cut:"'"|split:", " %}
+                                                        {% with correct_blanks=question.answers.all|dictsort:"id" %}
+                                                            {% for blank in correct_blanks %}
+                                                                {% with user_input=user_blanks|get_at_index:forloop.counter0|strip %}
+                                                                    {% if user_input and user_input|lower|strip == blank.text|lower|strip %}
+                                                                        <span class="badge bg-success">"{{ user_input }}"</span>
+                                                                    {% else %}
+                                                                        <span class="badge bg-danger">"{{ user_input|default:"[No Answer]" }}"</span>
+                                                                    {% endif %}
+                                                                {% endwith %}
+                                                            {% endfor %}
+                                                        {% endwith %}
+                                                    {% endwith %}
+                                                    {% endwith %}
+                                                {% else %}
+                                                    {# Default: new format, bar-separated #}
+                                                    {% with user_blanks=raw_answer|split:"|" %}
+                                                    {% with correct_blanks=question.answers.all|dictsort:"id" %}
+                                                        {% for blank in correct_blanks %}
+                                                            {% with user_input=user_blanks|get_at_index:forloop.counter0 %}
+                                                                {% if user_input and user_input|lower|strip == blank.text|lower|strip %}
+                                                                    <span class="badge bg-success">"{{ user_input }}"</span>
+                                                                {% else %}
+                                                                    <span class="badge bg-danger">"{{ user_input|default:"[No Answer]" }}"</span>
+                                                                {% endif %}
+                                                            {% endwith %}
+                                                        {% endfor %}
+                                                    {% endwith %}
+                                                    {% endwith %}
+                                                {% endif %}
+                                            {% endwith %}
+                                        {% elif user_answer.text_answer %}
+                                            "{{ user_answer.text_answer }}"
+                                        {% else %}
+                                            <span class="text-muted">No answer given</span>
+                                        {% endif %}
+                                        {% if user_answer.is_correct %}
+                                            <span class="badge bg-success ms-2">Correct</span>
+                                        {% else %}
+                                            <span class="badge bg-danger ms-2">Incorrect</span>
+                                        {% endif %}
+                                    </p>
+                                    {% if question.explanation %}
+                                        <div class="alert alert-info mt-3 mb-0 p-2">
+                                            <strong>Explanation:</strong> {{ question.explanation }}
+                                        </div>
+                                    {% endif %}
+                                    <div class="mt-2 mb-1 small">
+                                        <strong>Points:</strong>
+                                        {% if question.is_fill_in_the_blanks %}
+                                            {% with blanks=question.answers.all|length %}
+                                                {% with points_per_blank=question.points|floatformat:0 %}
+                                                    {{ user_answer.partial_score }} / {{ blanks }} blanks × {{ points_per_blank }} pts =
+                                                    {{ user_answer.partial_score|multiply:question.points|floatformat:0 }} /
+                                                    {{ blanks|multiply:question.points|floatformat:0 }} pts
+                                                {% endwith %}
+                                            {% endwith %}
+                                        {% else %}
+                                            {% if user_answer.is_correct %}
+                                                {{ question.points|floatformat:0 }}
+                                            {% else %}
+                                                0
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endwith %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex flex-wrap gap-3 justify-content-between mb-3">
+                <a href="{% url 'exams:grading_period_exam_list' %}" class="btn btn-theme-primary btn-lg d-flex align-items-center gap-2 shadow-sm">
+                    <i class="bi bi-arrow-bar-left"></i>
+                    <span>Back to Exams</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+/* Quiz summary card styles */
+.quiz-summary-card {
+    border-radius: 18px;
+    box-shadow: 0 4px 30px rgba(86, 113, 156,.12), 0 2px 10px rgba(86, 113, 156,.06);
+    overflow: hidden;
+    transition: box-shadow 0.18s;
+    margin-bottom: 2.25rem;
+}
+.quiz-summary-card .card-header {
+    background: transparent !important;
+}
+.stat-tile {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 0.5px 2.5px rgba(86,113,156,.07);
+    padding: 1rem 1.3rem 0.6rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 130px;
+    margin-bottom: 1rem;
+}
+.stat-tile .sm-label {
+    color: #a98b6d;
+    font-size: 0.92rem;
+    margin-bottom: 0.15rem;
+    letter-spacing: 0.03em;
+}
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #7a2a3b;
+}
+.stat-value.accent {
+    color: #2e5168;
+}
+.summary-details-section {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+}
+
+/* Quiz card styles */
+.quiz-card,
+.grading-period-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    transition: box-shadow 0.18s;
+}
+.quiz-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+    transform: translateY(-3px) scale(1.01);
+}
+.theme-muted {
+    color: #888 !important;
+}
+.badge.bg-light {
+    color: #888 !important;
+    border: 1px solid #eee;
+}
+@media (max-width: 767px) {
+    .quiz-card,
+    .grading-period-card {
+        margin-bottom: 2rem;
+    }
+    .quiz-summary-card .card-header {
+        padding: 1.2rem 1rem 0.6rem 1rem !important;
+    }
+    .quiz-summary-card {
+        margin-bottom: 1.1rem !important;
+    }
+    .stat-tile {
+        min-width: 100px !important;
+        padding: 0.75rem 0.7rem 0.55rem 0.7rem;
+        margin-bottom: 0.55rem !important;
+    }
+    h2 {
+        font-size: 1.4rem !important;
+    }
+}
+
+/* Button, badge, and alert classes for custom color match */
+.btn-theme-primary {
+    background: var(--primary-color, #762730);
+    color: #fff !important;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.85rem 1.3rem;
+    letter-spacing: .01em;
+    transition: background 0.1s;
+    display: inline-flex;
+    align-items: center;
+}
+.btn-theme-primary:hover, .btn-theme-primary:focus {
+    background: var(--secondary-color, #5a0000);
+    color: #fff !important;
+}
+
+.btn-outline-secondary {
+    border-radius: 10px;
+    font-weight: 600;
+    padding: 0.85rem 1.3rem;
+    letter-spacing: .01em;
+    border: 2px solid #888;
+    color: #888 !important;
+    background: #fff;
+    transition: background 0.1s, color 0.1s;
+    display: inline-flex;
+    align-items: center;
+}
+.btn-outline-secondary:hover, .btn-outline-secondary:focus {
+    background: #f4f4f4;
+    color: #262626 !important;
+    border-color: var(--primary-color, #762730);
+}
+
+@media (max-width: 767px) {
+    .btn-theme-primary, .btn-outline-secondary {
+        font-size: 1rem !important;
+        padding: 0.65rem 1rem !important;
+        border-radius: 7px !important;
+    }
+}
+</style>
+<script>
+function toPhilippineTimeString(dateISOString) {
+  const options = {
+    year: 'numeric', month: 'short', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: 'Asia/Manila'
+  };
+  const date = new Date(dateISOString);
+  let phString = date.toLocaleString('en-US', options)
+    .replace(/,/, '')
+    .replace(/(\d{2}) (.*)/, '$1, $2');
+  return phString;
+}
+window.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.local-time').forEach(function(el) {
+    if (el.dataset.datetime) {
+      el.textContent = toPhilippineTimeString(el.dataset.datetime);
+    }
+  });
+});
+</script>
+{% endblock %}

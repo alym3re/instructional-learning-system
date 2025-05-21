@@ -1,0 +1,316 @@
+{% extends 'base.html' %}
+{% block title %}{{ grading_period_display }} Quizzes{% endblock %}
+
+{% block content %}
+<div class="container quizzes-container pt-5">
+    <div class="row mb-4">
+        <div class="col">
+            <h2 class="fw-bold text-primary" style="font-size:2.5rem; letter-spacing:0.5px;">{{ grading_period_display }} Quizzes</h2>
+        </div>
+        <div class="col-auto d-flex align-items-center">
+            {% if user.is_staff %}
+                <a href="{% url 'quizzes:create_quiz' %}?grading_period={{ grading_period }}" class="btn btn-primary btn-lg d-flex align-items-center">
+                    <i class="bi bi-plus-lg me-2" style="font-size:1.5rem;"></i>
+                    <span style="font-size:1.17rem;">Add Quiz</span>
+                </a>
+            {% else %}
+                <a href="{% url 'quizzes:quiz_history' %}?grading_period={{ grading_period }}" class="btn btn-primary btn-lg d-flex align-items-center">
+                    <i class="bi bi-clock-history me-2" style="font-size:1.5rem;"></i>
+                    <span style="font-size:1.17rem;">View History</span>
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        {% for quiz in page_obj %}
+            {% if not quiz.is_archived %}
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="quiz-card card grading-period-card position-relative d-flex flex-column h-100 p-0">
+                    {% if quiz.locked and not user.is_staff %}
+                    <div class="locked-overlay d-flex flex-column align-items-center justify-content-center">
+                        <i class="bi bi-lock-fill mb-3 text-light" style="font-size:2.8rem;"></i>
+                        <span class="locked-text text-light">Locked</span>
+                    </div>
+                    {% endif %}
+                    <div class="card-body d-flex flex-column justify-content-between align-items-center p-4">
+
+                        <h4 class="card-title fw-semibold mb-3 mt-2 text-center" style="font-size:1.65rem; min-height:3.2rem;">{{ quiz.title }}</h4>
+                        <p class="card-text theme-muted text-center mb-3" style="font-size:1.15rem;">
+                            {{ quiz.description|truncatewords:20 }}
+                        </p>
+
+                    </div>
+                    <div class="card-footer bg-white border-0 pt-0 pb-4 px-4">
+                        {% if user.is_staff %}
+                            <div class="d-flex flex-column gap-2">
+                                <a href="{% url 'quizzes:view_quiz' quiz.id %}" class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;">
+                                    <i class="bi bi-eye me-1"></i> View Quiz
+                                </a>
+                                <a href="{% url 'quizzes:add_quiz_questions' quiz.id %}" class="btn btn-outline-primary btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;">
+                                    <i class="bi bi-pencil-square me-1"></i> Edit Questions
+                                </a>
+                                <form method="post"
+                                      action="{% url 'quizzes:archive_quiz' quiz.id %}?next={% url 'quizzes:quiz_list_by_period' quiz.grading_period %}"
+                                      class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-primary btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;">
+                                        <i class="bi bi-archive me-1"></i> Archive Quiz
+                                    </button>
+                                </form>
+                                <form method="post"
+                                      action="{% if quiz.locked %}{% url 'quizzes:unlock_quiz' quiz.id %}{% else %}{% url 'quizzes:lock_quiz' quiz.id %}{% endif %}"
+                                      class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit"
+                                      class="btn {% if quiz.locked %}btn-primary{% else %}btn-outline-primary{% endif %} btn-lg w-100 d-flex align-items-center justify-content-center"
+                                      style="font-size:1.05rem;">
+                                        <i class="bi {% if quiz.locked %}bi-unlock-fill{% else %}bi-lock-fill{% endif %} me-1"></i>
+                                        {% if quiz.locked %}Unlock Quiz{% else %}Lock Quiz{% endif %}
+                                    </button>
+                                </form>
+                            </div>
+                        {% else %}
+                            {% if completed_quiz_ids and quiz.id in completed_quiz_ids %}
+                                <button class="btn btn-success btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;" disabled>
+                                    <i class="bi bi-check-circle me-1"></i> Completed
+                                </button>
+                            {% else %}
+                                <a href="{% url 'quizzes:take_quiz' quiz.id %}"
+                                   class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center"
+                                   style="font-size:1.05rem;"
+                                   {% if quiz.locked %}disabled{% endif %}>
+                                    <i class="bi bi-box-arrow-in-right me-1"></i> Take Quiz
+                                </a>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info" style="font-size:1.18rem; padding:1.2rem 1.6rem;">
+                No quizzes found for this grading period.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if user.is_staff %}
+    <!-- Archived Quizzes Container -->
+    <div class="mt-5">
+        <h3 class="fw-bold text-secondary mb-4" style="font-size:2rem;">Archived Quizzes</h3>
+        <div class="row">
+            {% for quiz in page_obj %}
+            {% if quiz.is_archived %}
+            <div class="col-12 col-md-6 col-lg-4 mb-4">
+                <div class="quiz-card card grading-period-card position-relative d-flex flex-column h-100 p-0 bg-light">
+
+                    <div class="card-body d-flex flex-column justify-content-between align-items-center p-4">
+                        <h4 class="card-title fw-semibold mb-3 mt-2 text-center" style="font-size:1.65rem; min-height:3.2rem; opacity:0.7;">{{ quiz.title }}</h4>
+                        <p class="card-text theme-muted text-center mb-3" style="font-size:1.15rem; opacity:0.7;">
+                            {{ quiz.description|truncatewords:20 }}
+                        </p>
+                    </div>
+                    <div class="card-footer bg-white border-0 pt-0 pb-4 px-4">
+                        <div class="d-flex flex-column gap-2">
+                            <a href="{% url 'quizzes:view_quiz' quiz.id %}" class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;">
+                                <i class="bi bi-eye me-1"></i> View Quiz
+                            </a>
+                            <form method="post"
+                                  action="{% url 'quizzes:unarchive_quiz' quiz.id %}?next={% url 'quizzes:quiz_list_by_period' quiz.grading_period %}"
+                                  class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-primary btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;">
+                                    <i class="bi bi-arrow-up-circle me-1"></i> Unarchive
+                                </button>
+                            </form>
+                            <form method="post" action="{% url 'quizzes:quiz_delete' quiz.slug %}" class="delete-form">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger btn-lg w-100 d-flex align-items-center justify-content-center js-delete-btn" style="font-size:1.05rem;" onclick="return confirm('Are you sure you want to permanently remove this quiz?');">
+                                    <i class="bi bi-trash me-1"></i> Remove
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Quizzes pagination" class="mt-5">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link btn-lg" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+            </li>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active"><span class="page-link btn-lg">{{ num }}</span></li>
+            {% else %}
+            <li class="page-item">
+                <a class="page-link btn-lg" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link btn-lg" href="?page={{ page_obj.next_page_number }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+<style>
+.locked-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgb(118,39,48); /* match exam page overlay bg */
+    z-index: 10;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.locked-overlay .theme-danger,
+.locked-text {
+    color: var(--danger-color);
+}
+.locked-text {
+    font-weight: 600;
+    font-size: 2rem;
+    text-shadow: none;
+    letter-spacing: 1px;
+}
+.theme-success {
+    color: var(--success-color) !important;
+}
+.theme-danger {
+    color: var(--danger-color) !important;
+}
+
+.grading-period-card,
+.quiz-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    position: relative;
+    transition: box-shadow 0.18s;
+}
+.grading-period-card:hover,
+.quiz-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.13);
+    transform: translateY(-3px) scale(1.02);
+}
+.theme-muted {
+    color: #888 !important;
+}
+
+.btn-primary, .btn-warning, .btn-outline-primary, .btn-success, .btn-danger {
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: background 0.1s, color 0.1s;
+    padding: 0.85rem 1.3rem;
+}
+
+.btn-primary {
+    background: #762730;
+    color: #fff !important;
+    border: none;
+}
+
+.btn-primary:hover {
+    background: #fff !important ;
+    color: #762730 !important; 
+    border: #762730 2px solid;
+}
+
+.btn-warning {
+    background: var(--warning-color);
+    color: #fff !important;
+    border: none;
+}
+
+.btn-warning:hover {
+    background: #fff3cd;
+    color: var(--warning-color) !important;
+    border: 2px solid var(--warning-color);
+}
+
+.btn-outline-primary {
+    background: #fff;
+    color: #762730 !important;
+    border: 2px solid #762730 !important;
+}
+
+.btn-outline-primary:hover {
+    background: #762730 !important;
+    color: #fff !important;
+}
+
+.btn-success {
+    background: #4caf50;
+    color: #fff !important;
+    border: none;
+}
+
+.btn-success:hover {
+    background: #3f9142;
+    color: #fff !important;
+}
+
+.btn-danger {
+    background: #c0392b;
+    color: #fff !important;
+    border: none;
+}
+
+.btn-danger:hover {
+    background: #e57373;
+    color: #fff !important;
+}
+
+.page-link.btn-lg {
+    font-size: 1.17rem;
+    min-width: 2.9rem;
+    padding: 0.7em 1.1em;
+}
+.card-title {
+    font-size: 1.65rem;
+}
+.card-text {
+    font-size: 1.15rem;
+}
+@media (max-width: 575px) {
+    .card-title {
+        font-size: 1.13rem !important;
+    }
+    .btn-primary, .btn-warning, .btn-outline-primary, .btn-success, .btn-danger, .page-link.btn-lg {
+        font-size: 1.02rem;
+        padding: 0.62em 0.7em;
+    }
+    .card-text {
+        font-size: 1.002rem !important;
+    }
+}
+</style>
+<script>
+    // Enable Bootstrap tooltips for admin icons
+    document.addEventListener("DOMContentLoaded", function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+          return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Exam: {{ grading_period_display }}</h2>
+  {% if exam %}
+    <h3>{{ exam.title }}</h3>
+    <p>{{ exam.description }}</p>
+    <a href="{% url 'exams:view_exam' exam.id %}">View Exam</a>
+  {% else %}
+    <p>No exam scheduled for this period.</p>
+    {% if is_admin %}
+      <a href="{% url 'exams:create_exam' %}?grading_period={{ grading_period }}">Create Exam</a>
+    {% endif %}
+  {% endif %}
+{% endblock %}

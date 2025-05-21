@@ -1,0 +1,73 @@
+
+{% extends 'base.html' %}
+{% block title %}Exams{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Available Exams</h1>
+    
+    {% if not exams.exists %}
+        <div class="alert alert-info">No exams available at the moment.</div>
+    {% else %}
+        <div class="row">
+            {% for exam in exams %}
+            <div class="col-md-6 mb-4">
+                <div class="card exam-card">
+                    <div class="card-header bg-primary text-white">
+                        <h5>{{ exam.title }}</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>{{ exam.description }}</p>
+                        <ul class="list-group list-group-flush mb-3">
+                            <li class="list-group-item">Duration: {{ exam.duration }} minutes</li>
+                            <li class="list-group-item">Passing Score: {{ exam.passing_score }}%</li>
+                            <li class="list-group-item">Questions: {{ exam.exam_questions.count }}</li>
+                        </ul>
+                        <a href="{% url 'exams:take_exam' exam.id %}" class="btn btn-primary">Start Exam</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    {% if attempts.exists %}
+        <h2 class="mt-5 mb-3">Your Exam History</h2>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Exam</th>
+                        <th>Date Taken</th>
+                        <th>Score</th>
+                        <th>Result</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for attempt in attempts %}
+                    <tr>
+                        <td>{{ attempt.exam.title }}</td>
+                        <td>{{ attempt.start_time|date:"M d, Y H:i" }}</td>
+                        <td>{{ attempt.score|floatformat:1 }}%</td>
+                        <td>
+                            {% if attempt.passed %}
+                                <span class="badge bg-success">Passed</span>
+                            {% else %}
+                                <span class="badge bg-danger">Failed</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'exams:exam_results' attempt.id %}" class="btn btn-sm btn-outline-primary">Results</a>
+                            {% if attempt.exam.show_results %}
+                                <a href="{% url 'exams:review_exam' attempt.id %}" class="btn btn-sm btn-outline-info">Review</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

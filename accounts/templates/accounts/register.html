@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% block title %}Register{% endblock %}
+{% load static %}
+
+{% block navbar %}{% endblock %}
+
+
+{% block content %}
+<div class="background-overlay"></div>
+<div class="auth-bg d-flex align-items-center min-vh-100 py-5">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-8 col-lg-6">
+        <div class="card shadow-lg border-0 auth-card modern-card">
+          <div class="card-header text-center bg-gradient-primary text-white rounded-top">
+            <img src="{% static 'images/logo.png' %}" alt="Logo" width="85" class="mb-2">
+            <h3 class="mb-0 fw-bold">Create Your Account</h3>
+          </div>
+          <div class="card-body p-4 p-lg-5">
+            <form method="post" enctype="multipart/form-data" novalidate>
+              {% csrf_token %}
+              <div class="mb-3">
+                <label for="{{ form.student_id.id_for_label }}" class="form-label">Student ID</label>
+                {{ form.student_id }}
+                {% if form.student_id.errors %}
+                  <div class="invalid-feedback d-block">
+                    {{ form.student_id.errors.0 }}
+                  </div>
+                {% endif %}
+              </div>
+
+              <div class="row">
+                <div class="col-md-12 mb-3">
+                  <label for="{{ form.username.id_for_label }}" class="form-label">Username</label>
+                  {{ form.username }}
+                  {% if form.username.errors %}
+                    <div class="invalid-feedback d-block">
+                      {{ form.username.errors.0 }}
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label for="{{ form.first_name.id_for_label }}" class="form-label">First Name</label>
+                  {{ form.first_name }}
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label for="{{ form.middle_name.id_for_label }}" class="form-label">Middle Name</label>
+                  {{ form.middle_name }}
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label for="{{ form.last_name.id_for_label }}" class="form-label">Last Name</label>
+                  {{ form.last_name }}
+                </div>
+              </div>
+
+              
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.year_level.id_for_label }}" class="form-label">Year Level</label>
+                  {{ form.year_level }}
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.section.id_for_label }}" class="form-label">Section</label>
+                  {{ form.section }}
+                </div>
+              </div>
+              
+              <div class="mb-3">
+                <label for="{{ form.profile_pic.id_for_label }}" class="form-label">Profile Picture</label>
+                {{ form.profile_pic }}
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.password1.id_for_label }}" class="form-label">Password</label>
+                  {{ form.password1 }}
+                  {% if form.password1.errors %}
+                    <div class="invalid-feedback d-block">
+                      {{ form.password1.errors.0 }}
+                    </div>
+                  {% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.password2.id_for_label }}" class="form-label">Confirm Password</label>
+                  {{ form.password2 }}
+                  {% if form.password2.errors %}
+                    <div class="invalid-feedback d-block">
+                      {{ form.password2.errors.0 }}
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-lg w-100 shadow mt-3">Register</button>
+            </form>
+            <div class="mt-4 text-center">
+              <span class="small text-muted">Already have an account?</span>
+              <a href="{% url 'login' %}" class="ms-1 link-primary fw-semibold">Login here</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+
+{% block css %}
+<style>
+
+  .background-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url("{% static 'images/oc_bg.png' %}");
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.1;
+  }
+
+  .auth-card form input,
+  .auth-card form select,
+  .auth-card form textarea {
+    border-radius: 8px;
+    border: 1px solid var(--primary-color);
+    background: #fff;
+    font-size: 1rem;
+    padding: 0.65rem 1.1rem;
+    width: 100%;
+    transition: border-color 0.18s, background 0.18s;
+    box-shadow: none !important;
+    outline: none;
+  }
+  
+  .auth-card form input:focus,
+  .auth-card form select:focus,
+  .auth-card form textarea:focus {
+    border-color: var(--secondary-color);
+    background: #fff;
+  }
+  
+  .auth-card form input[type="file"] {
+    background: #fff; /* default for file input */
+    padding: 0.4rem 0.6rem;
+  }
+  
+  .auth-card form .invalid-feedback {
+    color: #c0392b;
+    font-size: 0.97rem;
+    margin-top: -0.25rem;
+    margin-bottom: 0.35rem;
+  }
+  
+  .auth-card .form-label {
+    font-weight: 500;
+    color: var(--primary-color);
+    margin-bottom: 0.35rem;
+    display: block;
+  }
+  
+  .auth-card .btn-primary {
+    background: var(--primary-color);
+    border: none;
+    border-radius: 10px;
+    font-size: 1.13rem;
+    font-weight: 600;
+    transition: background 0.18s;
+  }
+  
+  .auth-card .btn-primary:hover {
+    background: var(--secondary-color);
+  }
+  
+  .auth-card .link-primary {
+    color: var(--primary-color) !important;
+    text-decoration: none;
+    transition: color 0.12s;
+  }
+  
+  .auth-card .link-primary:hover {
+    color: var(--secondary-color);
+    text-decoration: underline;
+  }
+  
+  .card-header{
+    background-color: var(--primary-color) !important;
+  }
+</style>
+{% endblock %}

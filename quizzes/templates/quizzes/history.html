@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+{% block title %}Your Quiz History{% endblock %}
+
+{% block content %}
+<div class="container quiz-view-container pt-5">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb fs-5 bg-white rounded p-3 theme-shadow" style="--bs-breadcrumb-divider: '›';">
+            <li class="breadcrumb-item">
+                <a href="{% url 'quizzes:grading_period_list' %}" class="breadcrumb-link app-brand">Grading Periods</a>
+            </li>
+            {% if request.GET.grading_period %}
+                <li class="breadcrumb-item">
+                    <a href="{% url 'quizzes:quiz_list_by_period' request.GET.grading_period %}" class="breadcrumb-link app-brand">
+                        {{ request.GET.grading_period|title }}
+                    </a>
+                </li>
+                <li class="breadcrumb-item active app-brand" aria-current="page">History</li>
+            {% else %}
+                <li class="breadcrumb-item active app-brand" aria-current="page">History</li>
+            {% endif %}
+        </ol>
+    </nav>
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="quiz-card card grading-period-card border-0 shadow-sm mb-5">
+                <div class="card-header bg-white pt-4 pb-3 px-4 border-0">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap">
+                        <h2 class="mb-0 fw-bold" style="font-size:2rem">
+                            <i class="bi bi-clock-history me-2"></i> Quiz History
+                        </h2>
+                    </div>
+                </div>
+                <div class="card-body p-4">
+                    {% if not page_obj or page_obj.paginator.count == 0 %}
+                        <div class="alert alert-info">You haven't taken any quizzes yet.</div>
+                    {% else %}
+                    <div class="table-responsive">
+                        <table class="table leaderboard-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Quiz</th>
+                                    <th>Grading Period</th>
+                                    <th>Date Taken</th>
+                                    <th>Score</th>
+                                    <th>Result</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for attempt in page_obj %}
+                                <tr>
+                                    <td>{{ page_obj.start_index|add:forloop.counter0 }}</td>
+                                    <td>
+                                        <span class="fw-semibold">{{ attempt.quiz.title }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light theme-muted border">{{ attempt.quiz.get_grading_period_display }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="local-time" data-datetime="{{ attempt.start_time|date:"c" }}">
+                                            {{ attempt.start_time|date:"M d, Y H:i" }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold">{{ attempt.score|floatformat:1 }}%</span>
+                                    </td>
+                                    <td>
+                                        {% if attempt.passed %}
+                                            <span class="badge bg-success">Passed</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Failed</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'quizzes:quiz_results' attempt.id %}" class="btn btn-sm btn-theme-primary d-flex align-items-center gap-1">
+                                            <i class="bi bi-search"></i> Details
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination -->
+                    {% if page_obj.paginator.num_pages > 1 %}
+                    <nav aria-label="History pagination" class="mt-3">
+                        <ul class="pagination justify-content-center access-theme-pagination mb-0 gap-2">
+                            {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link btn-access-pagination" href="?page={{ page_obj.previous_page_number }}{% if request.GET.grading_period %}&grading_period={{ request.GET.grading_period }}{% endif %}">
+                                    &laquo; Previous
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                <li class="page-item active">
+                                    <span class="page-link btn-access-pagination active-btn">{{ num }}</span>
+                                </li>
+                                {% else %}
+                                <li class="page-item">
+                                    <a class="page-link btn-access-pagination" href="?page={{ num }}{% if request.GET.grading_period %}&grading_period={{ request.GET.grading_period }}{% endif %}">{{ num }}</a>
+                                </li>
+                                {% endif %}
+                            {% endfor %}
+                            {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link btn-access-pagination" href="?page={{ page_obj.next_page_number }}{% if request.GET.grading_period %}&grading_period={{ request.GET.grading_period }}{% endif %}">
+                                    Next &raquo;
+                                </a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+.quiz-card,
+.grading-period-card {
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
+    overflow: hidden;
+    transition: box-shadow 0.18s;
+}
+.quiz-card:hover {
+    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
+    transform: translateY(-3px) scale(1.01);
+}
+.theme-shadow {
+    box-shadow: 0 1px 8px rgba(86, 113, 156,.10) !important;
+}
+.theme-muted {
+    color: #888 !important;
+}
+.badge.bg-light {
+    color: #888 !important;
+    border: 1px solid #eee;
+}
+.btn-theme-primary {
+    background: var(--primary-color, #762730);
+    color: #fff !important;
+    border: none;
+    box-shadow: none;
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: background 0.1s;
+    padding: 0.85rem 1.3rem;
+    display: inline-flex;
+    align-items: center;
+}
+.btn-theme-primary:hover, .btn-theme-primary:focus {
+    background: var(--secondary-color, #5a0000);
+    color: #fff !important;
+}
+.access-theme-pagination .page-link {
+    border-radius: 8px;
+    margin: 0 2px;
+    color: var(--primary-color);
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+}
+.access-theme-pagination .page-link:hover {
+    background-color: #e9ecef;
+    color: var(--primary-color);
+}
+.access-theme-pagination .active-btn {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+.app-brand, .breadcrumb .breadcrumb-link, .breadcrumb-item.active.app-brand {
+    color: var(--primary-color) !important;
+    text-decoration: none !important;
+    background: none !important;
+    border-bottom: 2px solid transparent;
+    font-weight: 500;
+    transition: border-bottom 0.15s;
+}
+.breadcrumb .breadcrumb-link:hover, .breadcrumb .breadcrumb-link:focus {
+    border-bottom: 2px solid var(--primary-color);
+}
+.breadcrumb {
+    margin-bottom: 2.2rem;
+}
+@media (max-width: 767px) {
+    .quiz-card,
+    .grading-period-card {
+        margin-bottom: 2rem;
+    }
+    h2 {
+        font-size: 1.4rem !important;
+    }
+    .btn-theme-primary {
+        font-size: 1rem !important;
+        padding: 0.65rem 1rem !important;
+        border-radius: 7px !important;
+    }
+}
+</style>
+<script>
+function toPhilippineTimeString(dateISOString) {
+  const options = {
+    year: 'numeric', month: 'short', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+    timeZone: 'Asia/Manila'
+  };
+  const date = new Date(dateISOString);
+  let phString = date.toLocaleString('en-US', options)
+    .replace(/,/, '')
+    .replace(/(\d{2}) (.*)/, '$1, $2');
+  return phString;
+}
+window.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.local-time').forEach(function(el) {
+    if (el.dataset.datetime) {
+      el.textContent = toPhilippineTimeString(el.dataset.datetime);
+    }
+  });
+});
+</script>
+{% endblock %}

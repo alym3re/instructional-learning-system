@@ -1,0 +1,58 @@
+/* Quiz List Styles */
+.quiz-card {
+    transition: transform 0.2s;
+    height: 100%;
+}
+
+.quiz-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+/* Quiz Taking Styles */
+.quiz-container {
+    max-width: 800px;
+}
+
+.question-card {
+    border-left: 4px solid #762730;
+}
+
+.time-remaining {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+/* Results Styles */
+.result-card {
+    border: none;
+    border-radius: 10px;
+}
+
+.correct-answer {
+    background-color: rgba(40, 167, 69, 0.1);
+}
+
+.user-answer.correct {
+    background-color: rgba(40, 167, 69, 0.3);
+}
+
+.user-answer.incorrect {
+    background-color: rgba(220, 53, 69, 0.3);
+}
+
+/* Answer Form Styles */
+.answer-form {
+    background-color: #f8f9fa;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .quiz-info .card-body {
+        padding: 1rem;
+    }
+    
+    .quiz-info h5 {
+        font-size: 1rem;
+    }
+}
