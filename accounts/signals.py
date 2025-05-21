@@ -8,7 +8,7 @@ from django.conf import settings
 def send_welcome_email(sender, instance, created, **kwargs):
     if created and instance.email:
         send_mail(
-            'Welcome to Gamified Android Learning Application',
+            'Welcome to Instructional Learning System',
             f'Hello {instance.first_name},\n\nWelcome to our platform! '
             f'Your student account ({instance.student_id}) has been successfully created.\n\n'
             'Start your learning journey now!',

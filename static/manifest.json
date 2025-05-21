@@ -1,6 +1,6 @@
 {
-  "name": "Gamified Android Learning Application",
-  "short_name": "GALA",
+  "name": "Instructional Learning System",
+  "short_name": "ILS",
   "description": "A learning platform for advanced probability and statistics.",
   "start_url": "/",
   "display": "standalone",
