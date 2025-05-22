@@ -6,8 +6,7 @@ class QuizForm(forms.ModelForm):
     class Meta:
         model = Quiz
         fields = [
-            'title', 'description', 'grading_period', 'time_limit', 'passing_score',
-            'shuffle_questions', 'show_correct_answers'
+            'title', 'description', 'grading_period', 'time_limit', 'passing_score', 'show_correct_answers'
         ]
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
@@ -15,7 +14,6 @@ class QuizForm(forms.ModelForm):
             'grading_period': forms.Select(attrs={'class': 'form-select'}),
             'time_limit': forms.NumberInput(attrs={'min': 0, 'class': 'form-control'}),
             'passing_score': forms.NumberInput(attrs={'min': 0, 'max': 100, 'class': 'form-control'}),
-            'shuffle_questions': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'show_correct_answers': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 

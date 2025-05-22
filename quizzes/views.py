@@ -7,9 +7,10 @@ from django.utils import timezone
 from django.db import transaction
 from django.forms import inlineformset_factory
 from django.http import JsonResponse, Http404
+from django.views.decorators.http import require_GET
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db import models
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from itertools import groupby
 from operator import attrgetter
 from .models import Quiz, Question, Answer, QuizAttempt, UserAnswer, GRADING_PERIOD_CHOICES, QUESTION_TYPE_CHOICES, LockedQuizPeriod
@@ -265,15 +266,34 @@ def add_quiz_questions(request, quiz_id):
 
     error_message = None
     default_question_type = 'multiple_choice'
-    question_type = request.POST.get('question_type') or request.GET.get('question_type') or default_question_type
+    
+    # Check if we are editing an existing question
+    edit_question_id = request.GET.get('edit_question_id') or request.POST.get('edit_question_id')
+    edit_question = None
+    if edit_question_id:
+        try:
+            edit_question = quiz.questions.get(id=edit_question_id)
+            question_type = edit_question.question_type
+        except Question.DoesNotExist:
+            edit_question = None
+            question_type = request.POST.get('question_type') or request.GET.get('question_type') or default_question_type
+    else:
+        question_type = request.POST.get('question_type') or request.GET.get('question_type') or default_question_type
 
     if request.method == 'POST':
         if question_type == 'fill_in_the_blanks':
-            question_form = FillInTheBlanksForm(request.POST)
+            if edit_question:
+                question_form = FillInTheBlanksForm(request.POST, instance=edit_question)
+            else:
+                question_form = FillInTheBlanksForm(request.POST)
             answer_formset = None
         else:
-            question_form = QuestionForm(request.POST)
-            answer_formset = AnswerFormSet(request.POST, prefix='answers')
+            if edit_question:
+                question_form = QuestionForm(request.POST, instance=edit_question)
+                answer_formset = AnswerFormSet(request.POST, prefix='answers', instance=edit_question)
+            else:
+                question_form = QuestionForm(request.POST)
+                answer_formset = AnswerFormSet(request.POST, prefix='answers', instance=edit_question)
             
         # Process form validation based on question type
         if question_type == 'identification':
@@ -282,12 +302,15 @@ def add_quiz_questions(request, quiz_id):
                 error_message = "Correct answer cannot be blank for Identification type."
                 # Let the form show invalid with the error
                 questions = quiz.questions.all().prefetch_related('answers')
+                questions_by_type = get_questions_grouped_by_type(ordered_questions(questions))
                 return render(request, 'quizzes/add_questions.html', {
                     'quiz': quiz,
                     'question_form': question_form,
                     'answer_formset': answer_formset,
                     'questions': questions,
+                    'questions_by_type': questions_by_type,
                     'error': error_message,
+                    'editing': edit_question,
                 })
             # For identification, we only need the question form to be valid
             valid = question_form.is_valid()
@@ -301,56 +324,117 @@ def add_quiz_questions(request, quiz_id):
 
         if valid:
             with transaction.atomic():
-                question = question_form.save(commit=False)
-                question.quiz = quiz
-                question.question_type = question_type
-                question.save()
-
-                # For FIB: create correct Answer objects for each blank entry
-                if question_type == 'fill_in_the_blanks':
-                    blank_answers = question_form.cleaned_data['blank_answers']
-                    for blank_answer in blank_answers:
+                # Handle either editing existing question or creating new one
+                if edit_question:
+                    # Update existing question
+                    question = question_form.save(commit=False)
+                    question.quiz = quiz
+                    question.question_type = question_type
+                    question.save()
+                    
+                    # Always clear current answers before saving new ones
+                    question.answers.all().delete()
+                    
+                    # Handle answers based on question type
+                    if question_type == 'fill_in_the_blanks':
+                        blank_answers = question_form.cleaned_data['blank_answers']
+                        for blank_answer in blank_answers:
+                            Answer.objects.create(
+                                question=question,
+                                text=blank_answer.strip(),
+                                is_correct=True
+                            )
+                    elif question_type == 'identification':
                         Answer.objects.create(
                             question=question,
-                            text=blank_answer.strip(),
+                            text=request.POST.get('correct_answer', '').strip(),
                             is_correct=True
                         )
-                elif question_type == 'identification':
-                    # For identification questions, create a single correct answer
-                    answer = Answer.objects.create(
-                        question=question,
-                        text=request.POST.get('correct_answer', '').strip(),
-                        is_correct=True
-                    )
+                    else:
+                        # For other question types, use the formset to update answers
+                        answer_form_objects = answer_formset.save(commit=False)
+                        # Save/update answers in form
+                        for answer in answer_form_objects:
+                            answer.question = question
+                            answer.save()
+                        answer_formset.save_m2m()
+                        
+                    messages.success(request, 'Question updated successfully!')
                 else:
-                    # For other question types that use the answer formset
-                    answers = answer_formset.save(commit=False)
-                    for answer in answers:
-                        answer.question = question
-                        answer.save()
-                    answer_formset.save_m2m()
-                    
-                    # Ensure at least one answer is marked as correct
-                    if not any(answer.is_correct for answer in answers):
-                        messages.error(request, "At least one answer must be marked as correct.")
-                        return render(request, 'quizzes/add_questions.html', {
-                            'quiz': quiz,
-                            'question_form': question_form,
-                            'answer_formset': answer_formset,
-                            'questions': quiz.questions.all().prefetch_related('answers'),
-                            'error': "At least one answer must be marked as correct.",
-                        })
-                messages.success(request, 'Question added successfully!')
+                    # Create new question
+                    question = question_form.save(commit=False)
+                    question.quiz = quiz
+                    question.question_type = question_type
+                    question.save()
+
+                    # For FIB: create correct Answer objects for each blank entry
+                    if question_type == 'fill_in_the_blanks':
+                        blank_answers = question_form.cleaned_data['blank_answers']
+                        for blank_answer in blank_answers:
+                            Answer.objects.create(
+                                question=question,
+                                text=blank_answer.strip(),
+                                is_correct=True
+                            )
+                    elif question_type == 'identification':
+                        # For identification questions, create a single correct answer
+                        answer = Answer.objects.create(
+                            question=question,
+                            text=request.POST.get('correct_answer', '').strip(),
+                            is_correct=True
+                        )
+                    else:
+                        # For other question types that use the answer formset
+                        answers = answer_formset.save(commit=False)
+                        for answer in answers:
+                            answer.question = question
+                            answer.save()
+                        answer_formset.save_m2m()
+                        
+                        # Ensure at least one answer is marked as correct
+                        if not any(answer.is_correct for answer in answers):
+                            messages.error(request, "At least one answer must be marked as correct.")
+                            questions = quiz.questions.all().prefetch_related('answers')
+                            questions_by_type = get_questions_grouped_by_type(ordered_questions(questions))
+                            return render(request, 'quizzes/add_questions.html', {
+                                'quiz': quiz,
+                                'question_form': question_form,
+                                'answer_formset': answer_formset,
+                                'questions': questions,
+                                'questions_by_type': questions_by_type,
+                                'error': "At least one answer must be marked as correct.",
+                                'editing': edit_question,
+                            })
+                    messages.success(request, 'Question added successfully!')
                 return redirect('quizzes:add_quiz_questions', quiz_id=quiz.id)
         else:
             error_message = "Invalid question or answer form"
     else:
-        if question_type == 'fill_in_the_blanks':
-            question_form = FillInTheBlanksForm(initial={'question_type': 'fill_in_the_blanks'})
-            answer_formset = None
+        # GET: Show form for ADD or EDIT
+        if edit_question:
+            if question_type == 'fill_in_the_blanks':
+                # For FIB, we need to get the blank answers from the existing question
+                blank_answers = list(edit_question.answers.filter(is_correct=True).values_list('text', flat=True))
+                question_form = FillInTheBlanksForm(instance=edit_question, initial={
+                    'question_type': 'fill_in_the_blanks',
+                    'blank_answers': blank_answers,
+                })
+                answer_formset = None
+            elif question_type == 'identification':
+                # For identification, get the correct answer
+                correct_answer = edit_question.answers.filter(is_correct=True).first()
+                question_form = QuestionForm(instance=edit_question)
+                answer_formset = None
+            else:
+                question_form = QuestionForm(instance=edit_question)
+                answer_formset = AnswerFormSet(prefix='answers', instance=edit_question)
         else:
-            question_form = QuestionForm(initial={'question_type': question_type})
-            answer_formset = AnswerFormSet(prefix='answers')
+            if question_type == 'fill_in_the_blanks':
+                question_form = FillInTheBlanksForm(initial={'question_type': 'fill_in_the_blanks'})
+                answer_formset = None
+            else:
+                question_form = QuestionForm(initial={'question_type': question_type})
+                answer_formset = AnswerFormSet(prefix='answers')
 
     # Get questions in the preferred order
     questions = ordered_questions(quiz.questions.all().prefetch_related('answers'))
@@ -362,6 +446,7 @@ def add_quiz_questions(request, quiz_id):
         'questions': questions,
         'questions_by_type': questions_by_type,
         'error': error_message,
+        'editing': edit_question,
     })
 
 @login_required
@@ -614,6 +699,40 @@ def edit_quiz(request, quiz_id):
         'form': form,
         'quiz': quiz
     })
+
+@require_GET
+@login_required
+def get_question(request, quiz_id, question_id):
+    """
+    API endpoint to retrieve a question and its answers in JSON format for editing.
+    Used for AJAX-based edit-in-place functionality.
+    """
+    # Security: Only staff and quiz creator can edit questions
+    quiz = get_object_or_404(Quiz, id=quiz_id)
+    if not request.user.is_staff or quiz.created_by != request.user:
+        return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+
+    question = get_object_or_404(Question, id=question_id, quiz=quiz)
+    
+    # For fill_in_the_blanks, extract blank answers
+    blank_answers = []
+    if question.question_type == 'fill_in_the_blanks':
+        blank_answers = list(question.answers.filter(is_correct=True).values_list('text', flat=True))
+    
+    # Get all answers for the question
+    answers_list = list(question.answers.all().order_by('id').values('id', 'text', 'is_correct'))
+    
+    question_data = {
+        'success': True,
+        'id': question.id,
+        'text': question.text,
+        'question_type': question.question_type,
+        'points': question.points,
+        'explanation': question.explanation,
+        'answers': answers_list,
+        'blank_answers': blank_answers,
+    }
+    return JsonResponse(question_data)
 
 @require_POST
 @login_required

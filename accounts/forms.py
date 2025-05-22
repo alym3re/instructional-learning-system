@@ -14,6 +14,7 @@ class RegistrationForm(forms.ModelForm):
         widgets = {
             'profile_pic': forms.FileInput(attrs={'accept': 'image/*'}),
             'year_level': forms.Select(),
+            'section': forms.Select(),
         }
 
 

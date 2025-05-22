@@ -68,8 +68,13 @@
               </div>
               <div class="mb-3">
                 <label for="{{ form.password.id_for_label }}" class="form-label">Password</label>
-                <div class="input-group">
+                <div class="password-input-wrapper position-relative">
                   {{ form.password }}
+                  <span id="password-eye"
+                        class="bi bi-eye password-toggle-eye"
+                        tabindex="0"
+                        role="button"
+                        aria-label="Show password"></span>
                 </div>
                 {% if form.password.errors %}
                   <div class="invalid-feedback d-block">
@@ -98,6 +103,10 @@
 
 {% block css %}
 <style>
+
+  body{
+    overflow: hidden;
+  }
   .background-overlay {
     position: absolute;
     top: 0;
@@ -184,6 +193,32 @@
   .text-primary {
     color: var(--primary-color) !important;
   }
+  .password-input-wrapper {
+    position: relative;
+  }
+  /* style the eye icon inside the input */
+  .password-toggle-eye {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    transform: translateY(-50%);
+    font-size: 1.3em;
+    color: var(--primary-color);
+    cursor: pointer;
+    z-index: 2;
+    user-select: none;
+    padding: 2px 2px;
+    background: transparent;
+  }
+  .password-toggle-eye:focus {
+    outline: 2px solid var(--secondary-color);
+    outline-offset: 2px;
+  }
+  /* allow space for icon in input without clipping text */
+  .password-input-wrapper input[type="password"],
+  .password-input-wrapper input[type="text"] {
+    padding-right: 2.3em !important;
+  }
 </style>
 {% endblock %}
 
@@ -206,6 +241,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 localStorage.removeItem('rememberMe');
                 localStorage.removeItem('username');
             }
+        });
+    }
+
+    // Password visibility toggle (revised)
+    var pwdInput = document.querySelector('.password-input-wrapper input');
+    var eyeIcon = document.getElementById('password-eye');
+    if (pwdInput && eyeIcon) {
+        eyeIcon.addEventListener('click', function () {
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                eyeIcon.classList.remove('bi-eye');
+                eyeIcon.classList.add('bi-eye-slash');
+                eyeIcon.setAttribute('aria-label', 'Hide password');
+            } else {
+                pwdInput.type = 'password';
+                eyeIcon.classList.remove('bi-eye-slash');
+                eyeIcon.classList.add('bi-eye');
+                eyeIcon.setAttribute('aria-label', 'Show password');
+            }
+        });
+        // Optional accessibility: support keyboard toggle
+        eyeIcon.addEventListener('keydown', function(e){
+          if(e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            eyeIcon.click();
+          }
         });
     }
 });

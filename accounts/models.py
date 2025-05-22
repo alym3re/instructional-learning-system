@@ -22,6 +22,13 @@ class User(AbstractUser):
     ]
     year_level = models.CharField(max_length=1, choices=YEAR_LEVEL_CHOICES, blank=True, null=True)
     
+    SECTION_CHOICES = [
+        ('2400', '2400'),
+        ('2406', '2406'),
+        ('2412', '2412'),
+    ]
+    section = models.CharField(max_length=4, choices=SECTION_CHOICES, blank=True, null=True)
+
     def __str__(self):
         return f"{self.get_full_name()} ({self.student_id})"
     

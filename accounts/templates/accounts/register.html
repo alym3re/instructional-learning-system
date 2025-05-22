@@ -76,7 +76,14 @@
               <div class="row">
                 <div class="col-md-6 mb-3">
                   <label for="{{ form.password1.id_for_label }}" class="form-label">Password</label>
-                  {{ form.password1 }}
+                  <div class="password-input-wrapper position-relative">
+                    {{ form.password1 }}
+                    <span id="password1-eye"
+                        class="bi bi-eye password-toggle-eye"
+                        tabindex="0"
+                        role="button"
+                        aria-label="Show password"></span>
+                  </div>
                   {% if form.password1.errors %}
                     <div class="invalid-feedback d-block">
                       {{ form.password1.errors.0 }}
@@ -85,7 +92,14 @@
                 </div>
                 <div class="col-md-6 mb-3">
                   <label for="{{ form.password2.id_for_label }}" class="form-label">Confirm Password</label>
-                  {{ form.password2 }}
+                  <div class="password-input-wrapper position-relative">
+                    {{ form.password2 }}
+                    <span id="password2-eye"
+                        class="bi bi-eye password-toggle-eye"
+                        tabindex="0"
+                        role="button"
+                        aria-label="Show password"></span>
+                  </div>
                   {% if form.password2.errors %}
                     <div class="invalid-feedback d-block">
                       {{ form.password2.errors.0 }}
@@ -192,5 +206,87 @@
   .card-header{
     background-color: var(--primary-color) !important;
   }
+  
+  /* Password toggle eye icon styles */
+  .password-input-wrapper {
+    position: relative;
+  }
+  .password-toggle-eye {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    transform: translateY(-50%);
+    font-size: 1.3em;
+    color: var(--primary-color);
+    cursor: pointer;
+    z-index: 2;
+    user-select: none;
+    padding: 2px 2px;
+    background: transparent;
+  }
+  .password-toggle-eye:focus {
+    outline: 2px solid var(--secondary-color);
+    outline-offset: 2px;
+  }
+  .password-input-wrapper input[type="password"],
+  .password-input-wrapper input[type="text"] {
+    padding-right: 2.3em !important;
+  }
 </style>
+{% endblock %}
+
+{% block js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Password 1
+    var pwdInput1 = document.querySelector('.password-input-wrapper input[name="{{ form.password1.name }}"], .password-input-wrapper input#id_password1');
+    var eyeIcon1 = document.getElementById('password1-eye');
+    if (pwdInput1 && eyeIcon1) {
+        eyeIcon1.addEventListener('click', function () {
+            if (pwdInput1.type === 'password') {
+                pwdInput1.type = 'text';
+                eyeIcon1.classList.remove('bi-eye');
+                eyeIcon1.classList.add('bi-eye-slash');
+                eyeIcon1.setAttribute('aria-label', 'Hide password');
+            } else {
+                pwdInput1.type = 'password';
+                eyeIcon1.classList.remove('bi-eye-slash');
+                eyeIcon1.classList.add('bi-eye');
+                eyeIcon1.setAttribute('aria-label', 'Show password');
+            }
+        });
+        eyeIcon1.addEventListener('keydown', function(e){
+          if(e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            eyeIcon1.click();
+          }
+        });
+    }
+    
+    // Password 2
+    var pwdInput2 = document.querySelector('.password-input-wrapper input[name="{{ form.password2.name }}"], .password-input-wrapper input#id_password2');
+    var eyeIcon2 = document.getElementById('password2-eye');
+    if (pwdInput2 && eyeIcon2) {
+        eyeIcon2.addEventListener('click', function () {
+            if (pwdInput2.type === 'password') {
+                pwdInput2.type = 'text';
+                eyeIcon2.classList.remove('bi-eye');
+                eyeIcon2.classList.add('bi-eye-slash');
+                eyeIcon2.setAttribute('aria-label', 'Hide password');
+            } else {
+                pwdInput2.type = 'password';
+                eyeIcon2.classList.remove('bi-eye-slash');
+                eyeIcon2.classList.add('bi-eye');
+                eyeIcon2.setAttribute('aria-label', 'Show password');
+            }
+        });
+        eyeIcon2.addEventListener('keydown', function(e){
+          if(e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            eyeIcon2.click();
+          }
+        });
+    }
+});
+</script>
 {% endblock %}
