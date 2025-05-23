@@ -147,7 +147,7 @@ AUTH_USER_MODEL = 'accounts.User'
 # PWA Settings
 PWA_APP_NAME = 'Instructional Learning System'
 PWA_APP_DESCRIPTION = "A learning platform for advanced probability and statistics."
-PWA_APP_THEME_COLOR = '#762730'
+PWA_APP_THEME_COLOR = '#6A1829'
 PWA_APP_BACKGROUND_COLOR = '#ffffff'
 PWA_APP_DISPLAY = 'standalone'
 PWA_APP_SCOPE = '/'

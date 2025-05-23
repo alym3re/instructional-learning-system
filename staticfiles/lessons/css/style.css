@@ -1,0 +1,60 @@
+/* Lesson List Styles */
+.lessons-container {
+    padding-top: 20px;
+    padding-bottom: 40px;
+}
+
+.lesson-card {
+    transition: transform 0.2s;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.lesson-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.no-thumbnail {
+    height: 180px;
+    background-color: #f8f9fa;
+    color: #6c757d;
+}
+
+/* Lesson View Styles */
+.lesson-view-container {
+    padding-top: 20px;
+    padding-bottom: 40px;
+}
+
+.lesson-content {
+    line-height: 1.8;
+}
+
+.lesson-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 1rem 0;
+}
+
+.file-preview {
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* Upload Form Styles */
+.form-label {
+    font-weight: 500;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .lesson-card {
+        margin-bottom: 20px;
+    }
+    
+    .lesson-view-container {
+        padding-top: 10px;
+    }
+}

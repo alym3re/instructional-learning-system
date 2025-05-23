@@ -10,10 +10,9 @@ class RegistrationForm(forms.ModelForm):
     
     class Meta:
         model = User
-        fields = ['student_id', 'username', 'first_name', 'middle_name', 'last_name', 'profile_pic', 'section', 'year_level']
+        fields = ['student_id', 'username', 'first_name', 'middle_name', 'last_name', 'profile_pic', 'section']
         widgets = {
             'profile_pic': forms.FileInput(attrs={'accept': 'image/*'}),
-            'year_level': forms.Select(),
             'section': forms.Select(),
         }
 
@@ -52,11 +51,10 @@ class LoginForm(AuthenticationForm):
 class ProfileUpdateForm(forms.ModelForm):
     class Meta:
         model = User
-        fields = ['first_name', 'middle_name', 'last_name', 'student_id', 'username', 'profile_pic', 'section', 'year_level']
+        fields = ['first_name', 'middle_name', 'last_name', 'student_id', 'username', 'profile_pic', 'section']
         widgets = {
             'profile_pic': forms.FileInput(attrs={'accept': 'image/*'}),
             'section': forms.TextInput(attrs={'placeholder': 'Enter section'}),
-            'year_level': forms.Select()
         }
 
 class CustomPasswordResetForm(PasswordResetForm):

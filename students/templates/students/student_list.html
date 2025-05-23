@@ -7,11 +7,11 @@
         <i class="bi bi-people "></i> Students
     </h1>
     <form id="student-search-form" class="row gy-2 gx-2 align-items-end mb-4" autocomplete="off" method="get">
-        <div class="col-md-4">
+        <div class="col-md-6">
             <input type="text" name="query" class="form-control" placeholder="Search student..." value="{{ query }}">
         </div>
         <div class="col-md-3">
-            <select name="section" class="form-select">
+            <select name="section" class="form-select form-control">
                 <option value="">All Sections</option>
                 {% for s in sections %}
                     <option value="{{ s }}" {% if s == section %}selected{% endif %}>{{ s }}</option>
@@ -19,15 +19,7 @@
             </select>
         </div>
         <div class="col-md-3">
-            <select name="year_level" class="form-select">
-                <option value="">All Year Levels</option>
-                {% for y in year_levels %}
-                    <option value="{{ y.0 }}" {% if y.0 == year_level %}selected{% endif %}>{{ y.1 }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-2">
-            <button type="submit" class="btn btn-primary w-100">
+            <button type="submit" class="btn btn-primary w-100 form-control">
                 <i class="bi bi-search"></i>
                 Search
             </button>
@@ -41,7 +33,6 @@
                        data-student-id="{{ student.id }}" 
                        data-fullname="{{ student.get_full_name }}"
                        data-section="{{ student.section }}"
-                       data-year-level="{{ student.get_year_level_display }}"
                        data-student-id-val="{{ student.student_id }}"
                        data-profile-pic-url="{% if student.profile_pic %}{{ student.profile_pic.url }}{% else %}{% static 'images/default-avatar.png' %}{% endif %}"
                        data-username="{{ student.username }}"
@@ -53,15 +44,19 @@
                         </div>
                         <div class="main-container w-100 overflow-hidden">
                             <div class="name-id-container d-flex justify-content-between align-items-center">
-                                <p class="m-0 text-truncate fw-bold text-primary" style="font-size:1.15rem;">{{ student.get_full_name }}</p>
-                                <span class="badge bg-primary ms-2" style="font-size:.98rem;">{{ student.student_id }}</span>
+                                <p class="m-0 text-truncate fw-bold text-primary" style="font-size:1rem;">{{ student.get_full_name }}</p>
                                 <p class="d-none">{{ student.id }}</p>
                             </div>
                             <div class="separator my-2" style="background-color: var(--accent-color);height:1.5px;"></div>
-                            <div class="company">
+                            <div class="d-flex justify-content-between">
                                 <p class="m-0 text-truncate text-secondary">
-                                    <b>Section:</b> {{ student.section|default:"N/A" }} | 
-                                    <b>Year:</b> {{ student.get_year_level_display|default:"N/A" }}
+                                     <b>ID:</b> {{ student.student_id }}
+                                </p>
+                                <p class="m-0 text-truncate text-secondary">
+                                     |
+                                </p>
+                                <p class="m-0 text-truncate text-secondary">
+                                    <b>Section:</b> {{ student.section|default:"N/A" }}
                                 </p>
                             </div>
                         </div>
@@ -96,7 +91,6 @@
         <ul class="list-group list-group-flush">
             <li class="list-group-item"><b>Student ID:</b> <span id="modalStudentID" class="text-primary"></span></li>
             <li class="list-group-item"><b>Section:</b> <span id="modalSection" class="text-secondary"></span></li>
-            <li class="list-group-item"><b>Year Level:</b> <span id="modalYearLevel"></span></li>
             <li class="list-group-item"><b>Date Joined:</b> <span id="modalDateJoined"></span></li>
             <li class="list-group-item"><b>Last Updated:</b> <span id="modalLastUpdated"></span></li>
         </ul>
@@ -119,7 +113,6 @@ document.addEventListener("DOMContentLoaded", function() {
         document.getElementById('modalUsername').textContent = '@' + button.dataset.username;
         document.getElementById('modalStudentID').textContent = button.dataset.studentIdVal;
         document.getElementById('modalSection').textContent = button.dataset.section || 'N/A';
-        document.getElementById('modalYearLevel').textContent = button.dataset.yearLevel || 'N/A';
         document.getElementById('modalDateJoined').textContent = (button.dataset.dateJoined||"").replace("T", " ").slice(0, 19);
         document.getElementById('modalLastUpdated').textContent = (button.dataset.lastUpdated||"").replace("T", " ").slice(0, 19);
     });

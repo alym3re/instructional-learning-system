@@ -2,16 +2,26 @@
 
 <header>
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top shadow-sm app-navbar-plus">
-    <div class="container py-1">
-        <a class="navbar-brand d-flex align-items-center gap-2" href="{% url 'index' %}">
+    <div class="container py-1 px-3">
+        <!-- Logo & Title (Left side - hidden on mobile) -->
+        <a class="navbar-brand d-none d-lg-flex align-items-center gap-2 me-auto" href="{% url 'index' %}">
             <img src="{% static 'images/logo.png' %}" alt="Logo" width="38" height="38" class="d-inline-block align-top rounded bg-white shadow-sm">
-            <span class="fw-bold fs-4" style="letter-spacing:0.5px;">ILS</span>
+            <span class="fw-bold" style="font-size: smaller; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; display: inline-block;">
+                INSTRUCTIONAL<br>
+                LEARNING SYSTEM
+            </span>
         </a>
-        <button class="navbar-toggler ms-2" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-            <ul class="navbar-nav mb-2 mb-lg-0 ms-lg-4 ms-auto gap-lg-2">
+
+        <!-- Mobile Menu Button (Left side - visible only on mobile) -->
+        <div class="d-flex d-lg-none me-auto">
+            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSideNav" aria-controls="mobileSideNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
+
+        <!-- Desktop Navigation (Right side - hidden on mobile) -->
+        <div class="d-none d-lg-flex align-items-center gap-3">
+            <ul class="navbar-nav gap-1">
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
                 </li>
@@ -30,59 +40,134 @@
                     <a class="nav-link" href="{% url 'exams:grading_period_exam_list' %}">Exams</a>
                 </li>
             </ul>
-            <div class="d-flex align-items-center ms-lg-4 gap-2 flex-nowrap mt-2 mt-lg-0">
-                {% if user.is_authenticated %}
-                <div class="dropdown d-flex align-items-center">
-                    <button class="btn btn-outline-light d-flex align-items-center dropdown-toggle profile-btn" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                        <!-- Profile picture fetched using user.profile_pic, consistent with profile.html -->
-                        {% if user.profile_pic %}
-                            <img src="{{ user.profile_pic.url }}" alt="Profile" width="36" height="36" class="rounded-circle border border-3 border-white me-2" style="object-fit:cover;">
+            
+            <!-- User Profile (Desktop) -->
+            {% if user.is_authenticated %}
+            <div class="dropdown">
+                <button class="btn btn-outline-light d-flex align-items-center dropdown-toggle profile-btn text-white" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    {% if user.profile_pic %}
+                        <img src="{{ user.profile_pic.url }}" alt="Profile" width="36" height="36" class="rounded-circle border border-3 border-white me-2" style="object-fit:cover;">
+                    {% else %}
+                        <img src="{% static 'images/default-avatar.png' %}" alt="Profile" width="36" height="36" class="rounded-circle border border-3 border-white me-2" style="object-fit:cover;">
+                    {% endif %}
+                    <span class="fw-semibold">
+                        {% if user.first_name %}
+                            {{ user.first_name }}
                         {% else %}
-                            <img src="{% static 'images/default-avatar.png' %}" alt="Profile" width="36" height="36" class="rounded-circle border border-3 border-white me-2" style="object-fit:cover;">
+                            {{ user.username }}
                         {% endif %}
-                        <span class="fw-semibold">
-                            {% if user.first_name %}
-                                {{ user.first_name }}
-                            {% else %}
-                                {{ user.username }}
-                            {% endif %}
-                        </span>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-lg animate-dropdown">
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="{% url 'accounts:profile' %}">
-                                Profile
-                            </a>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item d-flex align-items-center" href="{% url 'accounts:logout' %}">
-                                Logout
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-                {% else %}
-                <a href="{% url 'accounts:login' %}" class="btn btn-outline-light me-2">Login</a>
-                <a href="{% url 'accounts:register' %}" class="btn btn-light">Register</a>
-                {% endif %}
+                    </span>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-lg animate-dropdown">
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center" href="{% url 'accounts:profile' %}">
+                            Profile
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center" href="{% url 'accounts:logout' %}">
+                            Logout
+                        </a>
+                    </li>
+                </ul>
             </div>
+            {% else %}
+            <div class="d-flex gap-2">
+                <a href="{% url 'accounts:login' %}" class="btn btn-outline-light">Login</a>
+                <a href="{% url 'accounts:register' %}" class="btn btn-light">Register</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Mobile User Profile (Right side - hidden on desktop) -->
+        <div class="d-flex d-lg-none align-items-center gap-2">
+            {% if user.is_authenticated %}
+            <!-- Mobile User Profile -->
+            <div class="dropdown">
+                <button class="btn btn-outline-light d-flex align-items-center dropdown-toggle profile-btn-mobile text-white" type="button" id="mobileUserDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    {% if user.profile_pic %}
+                        <img src="{{ user.profile_pic.url }}" alt="Profile" width="36" height="36" class="rounded-circle border border-3 border-white" style="object-fit:cover;">
+                    {% else %}
+                        <img src="{% static 'images/default-avatar.png' %}" alt="Profile" width="36" height="36" class="rounded-circle border border-3 border-white" style="object-fit:cover;">
+                    {% endif %}
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow-lg animate-dropdown">
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center" href="{% url 'accounts:profile' %}">
+                            Profile
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center" href="{% url 'accounts:logout' %}">
+                            Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            {% else %}
+            <a href="{% url 'accounts:login' %}" class="btn btn-outline-light btn-sm">Login</a>
+            {% endif %}
         </div>
     </div>
 </nav>
 </header>
+
+<!-- Mobile Side Navigation (Offcanvas) -->
+<div class="offcanvas offcanvas-start d-lg-none" tabindex="-1" id="mobileSideNav" aria-labelledby="mobileSideNavLabel">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title" id="mobileSideNavLabel">Menu</h5>
+        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'dashboard' %}">
+                    <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                </a>
+            </li>
+            {% if user.is_authenticated and user.is_staff %}
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'students:student_list' %}">
+                    <i class="bi bi-people me-2"></i>Students
+                </a>
+            </li>
+            {% endif %}
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'lessons:grading_period_list' %}">
+                    <i class="bi bi-journal-bookmark me-2"></i>Lessons
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'quizzes:grading_period_list' %}">
+                    <i class="bi bi-question-circle me-2"></i>Quizzes
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'exams:grading_period_exam_list' %}">
+                    <i class="bi bi-file-earmark-text me-2"></i>Exams
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+
 <style>
-.app-navbar-plus {
-    background: var(--primary-color) !important;
-    letter-spacing: 0.02em;
-    z-index: 1040 !important;
-    box-shadow: 0 2px 12px 0 rgba(86,113,156,0.07), 0 1.5px 3.5px rgba(86,113,156,.05);
+.profile-btn-mobile, .profile-btn{
+    background-color: transparent !important;
 }
+.profile-btn-mobile:hover, .profile-btn:hover{
+    background-color: transparent !important;
+}
+
 .navbar-brand img {
     box-shadow: 0 0.7px 8px 0 rgba(110, 52, 78, 0.07);
     background: #fff;
 }
-.navbar-nav .nav-link {
+
+/* Desktop Navigation */
+.d-none.d-lg-flex .navbar-nav .nav-link {
     border-radius: 8px;
     font-size: 1.16rem;
     font-weight: 500;
@@ -91,11 +176,15 @@
     margin: 0 .16em;
     transition: background 0.11s, color 0.14s;
 }
-.navbar-nav .nav-link:hover, .navbar-nav .nav-link:focus, .navbar-nav .nav-link.active {
+.d-none.d-lg-flex .navbar-nav .nav-link:hover, 
+.d-none.d-lg-flex .navbar-nav .nav-link:focus, 
+.d-none.d-lg-flex .navbar-nav .nav-link.active {
     background: var(--secondary-color);
     color: #ffeede !important;
     text-decoration: none;
 }
+
+/* Profile buttons */
 .profile-btn {
     padding: 0.25em 0.65em;
     font-size: 1.08rem;
@@ -103,10 +192,16 @@
     background: rgba(255,255,255,0.09);
     font-weight: 500;
 }
-.profile-btn img {
-    margin-right: .5em;
+.profile-btn-mobile {
+    padding: 0.25em;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.09);
+}
+.profile-btn img, .profile-btn-mobile img {
     box-shadow: 0 1.5px 7px 0 rgba(86, 30, 50, 0.08);
 }
+
+/* Dropdown menu */
 .dropdown-menu.animate-dropdown {
     animation: fadeInDown .21s cubic-bezier(.39,.58,.57,1.1);
 }
@@ -122,42 +217,49 @@
     align-items: center;
     gap: 0.6em;
 }
-.dropdown-menu .dropdown-item:hover, .dropdown-menu .dropdown-item:focus {
+.dropdown-menu .dropdown-item:hover, 
+.dropdown-menu .dropdown-item:focus {
     background: var(--primary-color);
     color: #fff;
 }
-.navbar .btn-outline-light, .navbar .btn-light {
-    font-size: 1.08rem;
-    border-radius: 7px;
-    padding: 0.45em 1.1em;
+
+/* Mobile Side Navigation */
+.offcanvas {
+    background-color: #fff;
+    box-shadow: 2px 0 15px rgba(0,0,0,0.1);
 }
+.offcanvas-header {
+    padding: 1rem 1.5rem;
+}
+.offcanvas-body {
+    padding: 0;
+}
+.nav.flex-column .nav-link {
+    padding: 1rem 1.5rem;
+    color: #333;
+    font-weight: 500;
+    border-left: 3px solid transparent;
+    transition: all 0.2s;
+}
+.nav.flex-column .nav-link:hover, 
+.nav.flex-column .nav-link:focus, 
+.nav.flex-column .nav-link.active {
+    background-color: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary-color);
+    border-left-color: var(--primary-color);
+}
+.nav.flex-column .nav-link i {
+    width: 24px;
+    text-align: center;
+}
+
 body {
-    padding-top: 70px; /* Add or adjust this value to match your navbar height (may need tweak) */
+    padding-top: 70px;
 }
-@media (max-width: 991.98px) {
-    .navbar-collapse.justify-content-end {
-        justify-content: flex-end !important;
-        text-align: right;
-    }
-    .navbar-nav {
-        align-items: flex-end !important;
-    }
-    .navbar-nav .nav-link {
-        width: 100%;
-        text-align: right;
-        margin-right: 0;
-    }
-    .app-navbar-plus .dropdown-menu-end[style] {
-        left: auto !important;
-        right: 1.2rem !important;
-    }
-}
+
 @media (max-width: 575.98px) {
     .navbar-brand span {
         font-size: 1.11rem !important;
-    }
-    .profile-btn {
-        font-size: .98rem;
     }
 }
 </style>

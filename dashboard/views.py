@@ -292,7 +292,7 @@ def admin_dashboard(request):
     from django.contrib.auth import get_user_model
     User = get_user_model()
 
-    total_users = User.objects.count()
+    total_users = User.objects.filter(is_superuser=False).count()
     new_users_week = User.objects.filter(
         date_joined__gte=timezone.now() - timedelta(days=7)
     ).count()
