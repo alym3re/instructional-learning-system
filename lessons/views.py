@@ -21,7 +21,7 @@ def grading_period_list(request):
     user = request.user if request.user.is_authenticated else None
 
     for period_value, period_label in periods:
-        lessons = Lesson.objects.filter(grading_period=period_value, is_active=True)
+        lessons = Lesson.objects.filter(grading_period=period_value, is_active=True, is_archived=False)
         lesson_count = lessons.count()
         view_count = lessons.aggregate(total_views=Sum("view_count"))["total_views"] or 0
 
@@ -34,7 +34,8 @@ def grading_period_list(request):
                 user=user,
                 lesson__grading_period=period_value,
                 completed=True,
-                lesson__is_active=True
+                lesson__is_active=True,
+                lesson__is_archived=False
             ).count()
             progress_percent = int((completed_count / lesson_count) * 100)
 
@@ -318,8 +319,20 @@ def delete_lesson(request, slug):
     if not lesson.is_archived:
         messages.error(request, "You can only delete archived lessons.")
         return redirect('lessons:view_lesson', slug=lesson.slug)
-    # Soft delete (set is_active to False):
-    lesson.is_active = False
-    lesson.save(update_fields=['is_active'])
-    messages.success(request, f'Lesson \"{lesson.title}\" has been deleted.')
-    return redirect('lessons:lesson_list_by_period', grading_period=lesson.grading_period)
+    
+    # Remove file from storage before deleting instance
+    if lesson.file and hasattr(lesson.file, 'path'):
+        try:
+            if os.path.isfile(lesson.file.path):
+                os.remove(lesson.file.path)
+        except Exception as e:
+            messages.warning(request, f'Could not delete the file: {e}')
+    
+    # Store values before deletion for message and redirect
+    grading_period = lesson.grading_period
+    title = lesson.title
+    
+    # Permanent delete
+    lesson.delete()
+    messages.success(request, f'Lesson \"{title}\" and its file have been permanently deleted.')
+    return redirect('lessons:lesson_list_by_period', grading_period=grading_period)

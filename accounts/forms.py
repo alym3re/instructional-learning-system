@@ -53,8 +53,13 @@ class ProfileUpdateForm(forms.ModelForm):
         model = User
         fields = ['first_name', 'middle_name', 'last_name', 'student_id', 'username', 'profile_pic', 'section']
         widgets = {
-            'profile_pic': forms.FileInput(attrs={'accept': 'image/*'}),
-            'section': forms.TextInput(attrs={'placeholder': 'Enter section'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'middle_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'student_id': forms.TextInput(attrs={'class': 'form-control'}),
+            'section': forms.Select(attrs={'class': 'form-select'}),
+            'profile_pic': forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': 'image/*'}),
         }
 
 class CustomPasswordResetForm(PasswordResetForm):

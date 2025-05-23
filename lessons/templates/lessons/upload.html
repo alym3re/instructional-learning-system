@@ -5,38 +5,23 @@
 {% endblock %}
 
 {% block content %}
-<div class="container lesson-view-container pt-5">
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="breadcrumb" class="mb-4">
-        <ol class="breadcrumb fs-5 bg-white rounded p-3 theme-shadow" style="--bs-breadcrumb-divider: '›';">
-            <li class="breadcrumb-item">
-                <a href="{% url 'lessons:grading_period_list' %}" class="breadcrumb-link app-brand">Grading Periods</a>
-            </li>
-            {% if grading_period_display and grading_period %}
-            <li class="breadcrumb-item app-brand">
-                <a href="{% url 'lessons:lesson_list_by_period' grading_period %}" class="breadcrumb-link app-brand">
-                    {{ grading_period_display }}
-                </a>
-            </li>
-            {% endif %}
-            <li class="breadcrumb-item active app-brand" aria-current="page">
-                {% if form.instance.pk %}Edit Lesson{% else %}Upload Lesson{% endif %}
-            </li>
-        </ol>
-    </nav>
-
+<div class="container py-5">
     <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="lesson-card card grading-period-card border-0 shadow-sm mb-5">
-                <div class="card-header bg-white pb-3 pt-4 px-4 border-0">
-                    <div class="d-flex justify-content-between align-items-start flex-wrap">
-                        <h2 class="mb-0 fw-bold" style="font-size:2.1rem; line-height:1.1;">
-                            {% if form.instance.pk %}Edit Lesson{% else %}Upload New Lesson{% endif %}
-                        </h2>
-                    </div>
-                </div>
-                <div class="card-body p-4">
-                    <form method="post" enctype="multipart/form-data" novalidate>
+        <div class="col-12 col-md-10 col-lg-8">
+            <div class="card border-0 shadow-sm grading-period-card">
+                <div class="card-body p-5 d-flex flex-column align-items-center">
+                    <h2 class="card-title fw-bold text-primary mb-4" style="font-size:2.2rem;">
+                        {% if form.instance.pk %}Edit Lesson{% else %}Upload New Lesson{% endif %}
+                    </h2>
+
+                    {% if grading_period_display %}
+                        <div class="alert alert-info mb-4 w-100 text-center py-2">
+                            <strong>Selected Grading Period:</strong>
+                            <span style="font-size:1.25rem; margin-left:4px;">{{ grading_period_display }}</span>
+                        </div>
+                    {% endif %}
+
+                    <form method="post" enctype="multipart/form-data" novalidate class="w-100 mt-3">
                         {% csrf_token %}
                         {% if form.non_field_errors %}
                             <div class="alert alert-danger mb-3">{{ form.non_field_errors }}</div>
@@ -55,7 +40,7 @@
                                 required
                             >
                             {% if form.title.errors %}
-                                <div class="invalid-feedback d-block">{{ form.title.errors }}</div>
+                                <div class="text-danger small">{{ form.title.errors }}</div>
                             {% endif %}
                         </div>
 
@@ -72,14 +57,15 @@
                                 required
                             >{{ form.description.value|default_if_none:'' }}</textarea>
                             {% if form.description.errors %}
-                                <div class="invalid-feedback d-block">{{ form.description.errors }}</div>
+                                <div class="text-danger small">{{ form.description.errors }}</div>
                             {% endif %}
                         </div>
 
                         <!-- GRADING PERIOD (force as form-select) -->
-                        <div class="mb-3">
+                        
+                        <div class="mb-3 d-none">
                             <label for="{{ form.grading_period.id_for_label }}" class="form-label fw-medium">Grading Period</label>
-                            <select
+                            <select 
                                 name="{{ form.grading_period.name }}"
                                 id="{{ form.grading_period.id_for_label }}"
                                 class="form-select"
@@ -92,11 +78,12 @@
                                 {% endfor %}
                             </select>
                             {% if form.grading_period.errors %}
-                                <div class="invalid-feedback d-block">{{ form.grading_period.errors }}</div>
+                                <div class="text-danger small">{{ form.grading_period.errors }}</div>
                             {% endif %}
                         </div>
+                        
 
-                        <!-- FILE INPUTS (force as form-control) -->
+                        <!-- FILE INPUTS -->
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="{{ form.file.id_for_label }}" class="form-label fw-medium">Lesson File</label>
@@ -107,23 +94,19 @@
                                     class="form-control"
                                     accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                 >
-                                <small class="text-muted">Only .pdf, .doc, .docx files are allowed.</small>
+                                <small class="theme-muted">Only .pdf, .doc, .docx files are allowed.</small>
                                 {% if form.file.errors %}
-                                    <div class="invalid-feedback d-block">{{ form.file.errors }}</div>
+                                    <div class="text-danger small">{{ form.file.errors }}</div>
                                 {% endif %}
                             </div>
-
                         </div>
 
-                        <!-- FEATURE THIS LESSON CHECKBOX (manual, modern UI) -->
-
-
-                        <div class="d-grid gap-2 mt-4">
-                            <button type="submit" class="btn btn-theme-primary btn-lg d-flex align-items-center justify-content-center gap-1">
+                        <div class="d-flex gap-3 mt-4">
+                            <button type="submit" class="btn btn-theme-primary btn-lg px-4 d-flex align-items-center justify-content-center gap-1">
                                 <i class="bi bi-upload me-1"></i>
                                 {% if form.instance.pk %}Update Lesson{% else %}Upload Lesson{% endif %}
                             </button>
-                            <a href="{% url 'lessons:grading_period_list' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>
+                            <a href="{% url 'lessons:grading_period_list' %}" class="btn btn-secondary btn-lg px-4">Cancel</a>
                         </div>
                     </form>
                 </div>
@@ -135,112 +118,60 @@
 
 {% block css %}
 <style>
-.lesson-view-container {
-    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+body {
+    background: var(--light-color);
 }
-/* --- BREADCRUMB --- */
-.app-brand, .breadcrumb .breadcrumb-link, .breadcrumb-item.active.app-brand {
-    color: var(--primary-color) !important;
-    text-decoration: none !important;
-    background: none !important;
-    border-bottom: 2px solid transparent;
-    font-weight: 500;
-    transition: border-bottom 0.15s;
-}
-.breadcrumb .breadcrumb-link:hover, .breadcrumb .breadcrumb-link:focus {
-    border-bottom: 2px solid var(--primary-color);
-}
-.breadcrumb-item.active.app-brand {
-    color: var(--secondary-color) !important;
-    border-bottom: none;
-    font-weight: bold;
-}
-/* --- CARD --- */
-.lesson-card,
 .grading-period-card {
     border-radius: 14px;
     background: #fff;
     box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
     overflow: hidden;
+    position: relative;
     transition: box-shadow 0.18s;
 }
-.lesson-card:hover {
+.grading-period-card:hover {
     box-shadow: 0 6px 30px rgba(0,0,0,0.10);
-    transform: translateY(-3px) scale(1.01);
 }
-/* --- UTILITIES --- */
-.theme-shadow {
-    box-shadow: 0 1px 8px rgba(86, 113, 156,.10) !important;
+.card-title {
+    font-size: 2.1rem;
 }
 .theme-muted {
     color: #888 !important;
 }
-/* BUTTONS */
 .btn-theme-primary {
     background: var(--primary-color);
-    color: #fff !important;
+    color: #fff;
     border: none;
     box-shadow: none;
+    font-weight: 600;
     letter-spacing: .01em;
     transition: background 0.1s;
-    font-size: 1.09rem;
-    padding: 0.95rem 1.25rem;
-    border-radius: 10px;
-    font-weight: 600;
 }
 .btn-theme-primary:hover, .btn-theme-primary:focus {
     background: var(--secondary-color);
-    color: #fff !important;
+    color: #fff;
 }
-.btn-outline-secondary.btn-lg {
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: 1.09rem;
-    padding: 0.95rem 1.25rem;
+.btn-theme-info {
+    background: var(--info-color) !important;
+    color: #fff;
+    font-weight: 500;
 }
-.form-label {
-    font-size:1.11rem;
+.btn-secondary {
+    background: #ececec;
+    color: #222;
+    font-weight: 500;
 }
-.form-control, .form-select {
-    font-size:1.09rem;
-    padding: .55rem .9rem;
-    border-radius:8px;
-    min-height: 43px;
-}
-.form-control:focus, .form-select:focus {
-    box-shadow: 0 2px 7px rgba(86, 113, 156, 0.12);
-}
-.invalid-feedback.d-block {
-    font-size: 0.95rem;
-    color: #f44336;
-}
-.form-check-input {
-    width: 1.2em;
-    height: 1.2em;
-    margin-top: 0.25em;
-    margin-right: 0.5em;
-    border-radius: 0.3em;
-}
-.form-check-label {
-    font-size:1.08rem;
-}
-
-.form-check-input:checked {
-    background-color: #6A1829;
-    border-color: #6A1829;
-}
-
-@media (max-width: 767px) {
-    .lesson-card,
-    .grading-period-card {
-        margin-bottom: 2rem;
+@media (max-width: 575px) {
+    .grading-period-card .card-body {
+        padding: 1.6rem 1.1rem !important;
     }
-    h2 {
-        font-size: 1.4rem !important;
+    .card-title {
+        font-size: 1.3rem !important;
     }
-    .btn-theme-primary {
-        font-size: 0.97rem;
-        padding: 0.72rem 0.8rem;
+    .btn-theme-primary, .btn-theme-info, .btn-secondary {
+        font-size: 1.04rem;
+        padding: 0.7rem 0.7rem;
+        border-radius: 8px;
     }
 }
 </style>

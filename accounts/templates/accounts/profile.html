@@ -9,7 +9,7 @@
         <div class="p-4 pb-3 d-flex flex-column flex-md-row align-items-center gap-4" style="border-bottom:1.5px solid #f1f1f5;">
             <div class="profile-pic-container mb-0">
                 {% if user.profile_pic %}
-                    <img src="{{ user.profile_pic.url }}" alt="Profile picture" class="img-fluid rounded-circle shadow" style="width:120px;height:120px;object-fit:cover;">
+                    <img src="{{ user.profile_pic.url }}" alt="Profile picture" class="img-fluid rounded-circle shadow" style="width:120px;height:120px;object-fit:cover;" id="profile-pic-main">
                 {% else %}
                     <div class="default-profile-pic theme-bg-light rounded-circle d-flex align-items-center justify-content-center" style="width:120px;height:120px;">
                         <i class="bi bi-person-circle" style="font-size:4.2em;color:#bbb;"></i>
@@ -30,117 +30,81 @@
                         <span class="badge bg-primary" style="font-size: 1.02rem;">Student ID: {{ user.student_id }}</span>
                     {% endif %}
                 </div>
-                <a href="{% url 'password_change' %}" class="btn btn-outline-secondary btn-sm mt-2">
-                    <i class="bi bi-key me-1"></i>Change Password
-                </a>
                 {% if not user.is_superuser %}
                     <div class="mb-2 text-muted" style="font-size:1.08em;">
                         <i class="bi bi-calendar-week me-1"></i>
                         Member since {{ user.date_joined|date:"M Y" }}
                     </div>
-                    <button id="edit-profile-btn" class="btn btn-outline-primary btn-sm mt-2 ms-2">
+                    <!-- Edit Profile Button triggers modal -->
+                    <button id="edit-profile-btn" class="btn btn-outline-primary btn-sm mt-2 ms-2" data-bs-toggle="modal" data-bs-target="#editProfileModal">
                         <i class="bi bi-pencil-square me-1"></i>Edit Profile
                     </button>
+                    
+                <a href="{% url 'password_change' %}" class="btn btn-outline-secondary btn-sm mt-2">
+                    <i class="bi bi-key me-1"></i>Change Password
+                </a>
                 {% endif %}
             </div>
         </div>
-        <!-- Profile Info/Editable Section -->
-        <div class="card-body px-4 py-4">
-            {% if not user.is_superuser %}
-            <div class="profile-display">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label text-muted mb-0">First Name</label>
-                        <div class="fw-semibold fs-5">{{ user.first_name }}</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label text-muted mb-0">Last Name</label>
-                        <div class="fw-semibold fs-5">{{ user.last_name }}</div>
-                    </div>
-                    {% if user.middle_name %}
-                    <div class="col-12">
-                        <label class="form-label text-muted mb-0">Middle Name</label>
-                        <div class="fw-semibold fs-5">{{ user.middle_name }}</div>
-                    </div>
-                    {% endif %}
-                    <div class="col-md-6">
-                        <label class="form-label text-muted mb-0">Username</label>
-                        <div class="fw-semibold fs-5">{{ user.username }}</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label text-muted mb-0">Student ID</label>
-                        <div class="fw-semibold fs-5">{{ user.student_id }}</div>
-                    </div>
-                    <!-- SECTION AND YEAR LEVEL FOR STUDENT -->
-                    <div class="col-md-6">
-                        <label class="form-label text-muted mb-0">Section</label>
-                        <div class="fw-semibold fs-5">{{ user.section|default:"—" }}</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label text-muted mb-0">Year Level</label>
-                        <div class="fw-semibold fs-5">
-                            {% if user.get_year_level_display %}
-                                {{ user.get_year_level_display }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-           
-            {% if not user.is_superuser %}
-            <form method="post" enctype="multipart/form-data" id="profile-form" class="d-none mt-3 needs-validation" novalidate>
-                {% csrf_token %}
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label for="{{ form.first_name.id_for_label }}" class="form-label">First Name</label>
-                        {{ form.first_name }}
-                    </div>
-                    <div class="col-md-6">
-                        <label for="{{ form.last_name.id_for_label }}" class="form-label">Last Name</label>
-                        {{ form.last_name }}
-                    </div>
-                    <div class="col-12">
-                        <label for="{{ form.middle_name.id_for_label }}" class="form-label">Middle Name</label>
-                        {{ form.middle_name }}
-                    </div>
-                    <div class="col-md-6">
-                        <label for="{{ form.username.id_for_label }}" class="form-label">Username</label>
-                        {{ form.username }}
-                    </div>
-                    <div class="col-md-6">
-                        <label for="{{ form.student_id.id_for_label }}" class="form-label">Student ID</label>
-                        {{ form.student_id }}
-                    </div>
-                    <div class="col-12">
-                        <label for="{{ form.profile_pic.id_for_label }}" class="form-label">Profile Picture</label>
-                        {{ form.profile_pic }}
-                    </div>
-                    <!-- Editable section and year level fields -->
-                    <div class="col-md-6">
-                        <label for="{{ form.section.id_for_label }}" class="form-label">Section</label>
-                        {{ form.section }}
-                    </div>
-                    <div class="col-md-6">
-                        <label for="{{ form.year_level.id_for_label }}" class="form-label">Year Level</label>
-                        {{ form.year_level }}
-                    </div>
-                </div>
-                <div class="d-flex gap-2 mt-4">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-save me-1"></i>Save Changes
-                    </button>
-                    <button type="button" class="btn btn-secondary" id="cancel-edit">
-                        <i class="bi bi-x-circle me-1"></i>Cancel
-                    </button>
-                </div>
-            </form>
-            {% endif %}
-        </div>
     </div>
 </div>
+
+{% if not user.is_superuser %}
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" enctype="multipart/form-data" id="profile-form" class="needs-validation" novalidate>
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="editProfileModalLabel">Edit Profile</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+              <div class="col-md-12">
+                  <label for="{{ form.first_name.id_for_label }}" class="form-label">First Name</label>
+                  {{ form.first_name }}
+              </div>
+              <div class="col-12">
+                  <label for="{{ form.middle_name.id_for_label }}" class="form-label">Middle Name</label>
+                  {{ form.middle_name }}
+              </div>
+              <div class="col-md-12">
+                  <label for="{{ form.last_name.id_for_label }}" class="form-label">Last Name</label>
+                  {{ form.last_name }}
+              </div>
+              <div class="col-md-12">
+                  <label for="{{ form.username.id_for_label }}" class="form-label">Username</label>
+                  {{ form.username }}
+              </div>
+              <div class="col-md-12">
+                  <label for="{{ form.student_id.id_for_label }}" class="form-label">Student ID</label>
+                  {{ form.student_id }}
+              </div>
+              <div class="col-md-12">
+                  <label for="{{ form.section.id_for_label }}" class="form-label">Section</label>
+                  {{ form.section }}
+              </div>
+              <div class="col-12">
+                  <label for="{{ form.profile_pic.id_for_label }}" class="form-label">Profile Picture</label>
+                  {{ form.profile_pic }}
+              </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">
+              <i class="bi bi-save me-1"></i>Save Changes
+          </button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              <i class="bi bi-x-circle me-1"></i>Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block css %}
@@ -190,41 +154,16 @@
 {% block js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const editBtn = document.getElementById('edit-profile-btn');
-    const profileDisplay = document.querySelector('.profile-display');
-    const profileForm = document.getElementById('profile-form');
-    const cancelBtn = document.getElementById('cancel-edit');
-
-    if (editBtn && profileDisplay && profileForm) {
-        editBtn.addEventListener('click', function() {
-            profileDisplay.classList.add('d-none');
-            profileForm.classList.remove('d-none');
-        });
-    }
-    if (cancelBtn && profileDisplay && profileForm) {
-        cancelBtn.addEventListener('click', function(){
-            profileDisplay.classList.remove('d-none');
-            profileForm.classList.add('d-none');
-        });
-    }
-
-    // Profile picture preview
+    // Profile picture preview inside modal
     const profilePicInput = document.getElementById('id_profile_pic');
-    if (profilePicInput) {
+    const profilePicMain = document.getElementById('profile-pic-main');
+    if (profilePicInput && profilePicMain) {
         profilePicInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(event) {
-                    const img = document.querySelector('.profile-pic-container img');
-                    if (img) {
-                        img.src = event.target.result;
-                    } else {
-                        const container = document.querySelector('.profile-pic-container');
-                        container.innerHTML = `
-                            <img src="${event.target.result}" alt="Profile picture" class="img-fluid">
-                        `;
-                    }
+                    profilePicMain.src = event.target.result;
                 }
                 reader.readAsDataURL(file);
             }

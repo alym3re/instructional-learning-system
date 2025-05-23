@@ -32,14 +32,6 @@
                 <div class="card-footer bg-white border-0 pt-0 pb-5 px-5">
                     
                     {% if user.is_staff %}
-                        <form method="post" action="{% url 'lessons:toggle_period_lock' value %}" class="w-100 mt-1">
-                            {% csrf_token %}
-                            <button type="submit"
-                              class="btn btn-lg w-100 shadow-none mb-2 {% if stats.locked %}btn-theme-primary{% else %}btn-theme-maroon-outline{% endif %}">
-                                <i class="bi {% if stats.locked %}bi-unlock-fill{% else %}bi-lock-fill{% endif %} me-1"></i>
-                                <span style="font-size:1.18rem;">{% if stats.locked %}Unlock Period{% else %}Lock Period{% endif %}</span>
-                            </button>
-                        </form>
                     {% else %}
                         <div class="w-100 mb-3 mt-3">
                             <div class="progress theme-progress" style="height: 28px;">

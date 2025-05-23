@@ -101,13 +101,14 @@ def student_dashboard(request):
     total_students = all_students.count()
 
     for period_value, period_label in grading_periods:
-        lessons_in_period = Lesson.objects.filter(grading_period=period_value, is_active=True)
+        lessons_in_period = Lesson.objects.filter(grading_period=period_value, is_active=True, is_archived=False)
         total_lessons = lessons_in_period.count()
         lessons_read_count = LessonProgress.objects.filter(
             user=user,
             lesson__grading_period=period_value,
             completed=True,
-            lesson__is_active=True
+            lesson__is_active=True,
+            lesson__is_archived=False
         ).count() if total_lessons > 0 else 0
 
         lessons_progress_percent = round(lessons_read_count / total_lessons * 100, 1) if total_lessons else 0
@@ -192,12 +193,13 @@ def student_dashboard(request):
     lessons_achievements = []
     lessons_read_period = {}
     for period_value, period_label in grading_periods:
-        active_lessons = Lesson.objects.filter(grading_period=period_value, is_active=True).count()
+        active_lessons = Lesson.objects.filter(grading_period=period_value, is_active=True, is_archived=False).count()
         lessons_read = LessonProgress.objects.filter(
             user=user,
             lesson__grading_period=period_value,
             completed=True,
-            lesson__is_active=True
+            lesson__is_active=True,
+            lesson__is_archived=False
         ).count() if active_lessons > 0 else 0
 
         lessons_read_period[period_value] = (lessons_read, active_lessons)
@@ -208,10 +210,11 @@ def student_dashboard(request):
                 'icon': 'book'
             })
 
-    active_total_lessons = Lesson.objects.filter(is_active=True).count()
+    active_total_lessons = Lesson.objects.filter(is_active=True, is_archived=False).count()
     all_read = LessonProgress.objects.filter(
         user=user,
         lesson__is_active=True,
+        lesson__is_archived=False,
         completed=True
     ).values('lesson_id').distinct().count()
 
@@ -299,7 +302,7 @@ def admin_dashboard(request):
     active_users = User.objects.filter(
         last_login__gte=timezone.now() - timedelta(days=30)
     ).count()
-    total_lessons = Lesson.objects.count()
+    total_lessons = Lesson.objects.filter(is_active=True, is_archived=False).count()
     total_quizzes = Quiz.objects.count()
     total_exams = Exam.objects.count()
 
@@ -308,7 +311,7 @@ def admin_dashboard(request):
     period_stats = {}
 
     for period_value, period_label in GRADING_PERIODS:
-        total_lessons_in_period = Lesson.objects.filter(grading_period=period_value, is_active=True).count()
+        total_lessons_in_period = Lesson.objects.filter(grading_period=period_value, is_active=True, is_archived=False).count()
 
         quizzes_in_period = Quiz.objects.filter(grading_period=period_value, is_archived=False)
         quizzes_list = [
@@ -515,7 +518,7 @@ def download_rankings_docx(request, period_value=None):
 
     period_stats = {}
     for period_value_iter, period_label in GRADING_PERIODS:
-        total_lessons_in_period = Lesson.objects.filter(grading_period=period_value_iter, is_active=True).count()
+        total_lessons_in_period = Lesson.objects.filter(grading_period=period_value_iter, is_active=True, is_archived=False).count()
 
         quizzes_in_period = Quiz.objects.filter(grading_period=period_value_iter, is_archived=False)
         quizzes_list = [

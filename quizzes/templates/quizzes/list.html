@@ -62,12 +62,6 @@
                                       action="{% if quiz.locked %}{% url 'quizzes:unlock_quiz' quiz.id %}{% else %}{% url 'quizzes:lock_quiz' quiz.id %}{% endif %}"
                                       class="d-inline">
                                     {% csrf_token %}
-                                    <button type="submit"
-                                      class="btn {% if quiz.locked %}btn-primary{% else %}btn-outline-primary{% endif %} btn-lg w-100 d-flex align-items-center justify-content-center"
-                                      style="font-size:1.05rem;">
-                                        <i class="bi {% if quiz.locked %}bi-unlock-fill{% else %}bi-lock-fill{% endif %} me-1"></i>
-                                        {% if quiz.locked %}Unlock Quiz{% else %}Lock Quiz{% endif %}
-                                    </button>
                                 </form>
                             </div>
                         {% else %}
