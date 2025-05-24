@@ -21,7 +21,8 @@ urlpatterns = [
     path('<int:quiz_id>/lock/', views.lock_quiz, name='lock_quiz'),
     path('<int:quiz_id>/unlock/', views.unlock_quiz, name='unlock_quiz'),
     path('<slug:slug>/delete/', views.delete_quiz, name='quiz_delete'),
-    
+    path('<int:quiz_id>/publish/', views.publish_quiz, name='publish_quiz'),
+    path('<int:quiz_id>/unpublish/', views.unpublish_quiz, name='unpublish_quiz'),
 ]
 
 

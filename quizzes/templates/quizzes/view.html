@@ -1,10 +1,12 @@
 
 {% extends 'base.html' %}
 {% load percentage_extras %}
+{% load exams_extras %}
+{% load dict_extras %}
 {% block title %}{{ quiz.title }}{% endblock %}
 
 {% block content %}
-<div class="container quiz-view-container pt-5">
+<div class="container quiz-view-container py-5">
     <!-- Breadcrumb Navigation -->
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb fs-5 bg-white rounded p-3 theme-shadow" style="--bs-breadcrumb-divider: '›';">
@@ -20,204 +22,324 @@
         </ol>
     </nav>
 
-    <div class="row">
-        <!-- Main Content -->
-        <div class="col-lg-8">
+    <div class="row justify-content-center">
+        <!-- Main Content: Responsive, always centered -->
+        <div class="col-12 col-lg-9">
             <!-- Quiz Details Card -->
-            <div class="quiz-card card grading-period-card border-0 shadow-sm mb-5">
-                <div class="card-header bg-white pb-3 pt-4 px-4 border-0">
-                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                        <span class="badge bg-light theme-muted border d-flex align-items-center" style="font-size:1.01rem;">
+            <div class="card px-0 pt-0 pb-4 mb-4 shadow-sm rounded-4 quiz-main-card">
+                <div class="card-header bg-white px-4 py-4 rounded-top-4">
+                    <div class="d-flex flex-column flex-md-row flex-wrap gap-2 align-items-start align-items-md-center justify-content-between mb-3">
+                        <h2 class="fw-bold mb-md-0 mb-2" style="font-size:2.0rem;">{{ quiz.title }}</h2>
+                        <!-- Uniform Actions Toolbar -->
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            {% if request.user.is_staff %}
+                                <form method="post" action="{% if quiz.is_published %}{% url 'quizzes:unpublish_quiz' quiz.id %}{% else %}{% url 'quizzes:publish_quiz' quiz.id %}{% endif %}" class="d-inline" onsubmit="return confirmPublishUnpublishView('{{ quiz.is_published }}');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-theme-primary d-flex align-items-center">
+                                        <i class="bi {% if quiz.is_published %}bi-cloud-slash{% else %}bi-cloud-upload{% endif %} me-1"></i> 
+                                        {% if quiz.is_published %}Unpublish{% else %}Publish{% endif %}
+                                    </button>
+                                </form>
+                                {% if not quiz.is_published %}
+                                    <a href="{% url 'quizzes:add_quiz_questions' quiz.id %}" class="btn btn-sm btn-theme-primary d-flex align-items-center">
+                                        <i class="bi bi-pencil-square me-1"></i> Edit Questions
+                                    </a>
+                                    <a href="{% url 'quizzes:edit_quiz' quiz.id %}" class="btn btn-sm btn-theme-primary d-flex align-items-center">
+                                        <i class="bi bi-pencil me-1"></i> Edit Quiz
+                                    </a>
+                                {% else %}
+                                    <span class="btn btn-sm btn-theme-muted d-flex align-items-center" style="pointer-events:none;opacity:.63;">
+                                        <i class="bi bi-pencil me-1"></i> Editing Disabled
+                                    </span>
+                                {% endif %}
+                            {% endif %}
+                            {% if not request.user.is_staff %}
+                                {% if quiz.is_published %}
+                                    {% if completed %}
+                                        <span class="btn btn-sm btn-success d-flex align-items-center" disabled>
+                                            <i class="bi bi-check-circle me-1"></i> Completed
+                                        </span>
+                                    {% else %}
+                                        <a href="{% url 'quizzes:take_quiz' quiz.id %}" class="btn btn-sm btn-primary d-flex align-items-center">
+                                            <i class="bi bi-play-circle me-1"></i> Take Quiz
+                                        </a>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="btn btn-sm btn-secondary d-flex align-items-center" disabled>
+                                        <i class="bi bi-hourglass-split me-1"></i> Not Available Yet
+                                    </span>
+                                {% endif %}
+                            {% endif %}
+                            <button class="btn btn-sm btn-theme-primary d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#resultsModal">
+                                <i class="bi bi-table me-1"></i> View Results
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <span class="badge bg-light theme-muted border d-flex align-items-center">
                             <i class="bi bi-person-circle me-1"></i>
-                            Uploaded by <strong class="mx-1">{{ quiz.created_by.get_full_name|default:quiz.created_by.username }}</strong>
+                            Uploaded by <strong class="ms-1">{{ quiz.created_by.get_full_name|default:quiz.created_by.username }}</strong>
                         </span>
-                        <span class="badge bg-light theme-muted border d-flex align-items-center" style="font-size:1.01rem;">
-                            <i class="bi bi-calendar-week me-1"></i>
-                            {{ quiz.get_grading_period_display }}
-                        </span>
-                        <span class="badge bg-light theme-muted border d-flex align-items-center" style="font-size:1.01rem;">
-                            <i class="bi bi-eye me-1"></i> {{ quiz.view_count }} views
-                        </span>
-                        <span class="badge bg-light theme-muted border d-flex align-items-center" style="font-size:1.01rem;">
+                        <span class="badge bg-light theme-muted border d-flex align-items-center">
                             <i class="bi bi-clock-history me-1"></i>
                             <span id="uploaded-date" data-datetime="{{ quiz.created_at|date:"c" }}">{{ quiz.created_at|date:"M d, Y H:i" }}</span>
                         </span>
-                    </div>
-                    <h2 class="fw-bold" style="font-size:2.1rem; line-height:1.1;">{{ quiz.title }}</h2>
-                </div>
-                <div class="card-body p-4">
-
-                    <div class="quiz-content mb-4" style="font-size:1.17rem;">
-                        {{ quiz.description|linebreaksbr }}
-                    </div>
-
-                    <!-- Uniform Actions Row -->
-                    <div class="d-flex flex-wrap gap-2 mb-3">
-                        {% if request.user.is_staff %}
-                            {% if quiz.is_archived %}
-                                <form method="post" action="{% url 'quizzes:unarchive_quiz' quiz.id %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button class="btn btn-warning d-flex align-items-center" type="submit">
-                                        <i class="bi bi-arrow-up-circle me-2"></i> Unarchive
-                                    </button>
-                                </form>
-                            {% else %}
-                                <form method="post" action="{% url 'quizzes:archive_quiz' quiz.id %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button class="btn btn-secondary d-flex align-items-center" type="submit">
-                                        <i class="bi bi-archive me-2"></i> Archive
-                                    </button>
-                                </form>
-                            {% endif %}
-                            <a href="{% url 'quizzes:add_quiz_questions' quiz.id %}" class="btn btn-outline-primary d-flex align-items-center">
-                                <i class="bi bi-pencil-square me-2"></i> Edit Questions
-                            </a>
-                            <a href="{% url 'quizzes:edit_quiz' quiz.id %}" class="btn btn-outline-primary d-flex align-items-center">
-                                <i class="bi bi-pencil me-2"></i> Edit Quiz
-                            </a>
-                        {% endif %}
-                        {% if not request.user.is_staff %}
-                            {% if completed %}
-                                <span class="btn btn-success d-flex align-items-center" style="font-size:1.17rem;" disabled>
-                                    <i class="bi bi-check-circle me-1"></i> Completed
-                                </span>
-                            {% else %}
-                                <a href="{% url 'quizzes:take_quiz' quiz.id %}" class="btn btn-primary d-flex align-items-center">
-                                    <i class="bi bi-play-circle me-1"></i> Take Quiz
-                                </a>
-                            {% endif %}
-                        {% endif %}
-                    </div>
-
-                    <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
-                        <span class="badge bg-light theme-muted border" style="font-size:1.01rem;">
+                        <span class="badge bg-light theme-muted border">
                             <i class="bi bi-question-circle me-1"></i> {{ questions|length }} Questions
                         </span>
-                        <span class="badge bg-light theme-muted border" style="font-size:1.01rem;">
+                        <span class="badge bg-light theme-muted border">
                             <i class="bi bi-percent me-1"></i> Passing: {{ quiz.passing_score }}%
                         </span>
                         {% if quiz.time_limit %}
-                            <span class="badge bg-light theme-muted border" style="font-size:1.01rem;">
-                                <i class="bi bi-clock me-1"></i> Time Limit: {{ quiz.time_limit }} min.
-                            </span>
+                        <span class="badge bg-light theme-muted border">
+                            <i class="bi bi-clock me-1"></i> Time Limit: {{ quiz.time_limit }} min.
+                        </span>
                         {% endif %}
                     </div>
                 </div>
-            </div>
-            
-            <!-- Questions Display Card -->
-            <div class="quiz-card card grading-period-card border-0 shadow-sm mb-5">
-                <div class="card-header bg-white pb-2 pt-3 px-4 border-0">
-                    <h4 class="fw-semibold mb-0" style="font-size:1.35rem;">
-                        <i class="bi bi-question-circle me-2"></i>Questions
-                    </h4>
+                <div class="card-body px-4 pt-3">
+                    <div class="quiz-content mb-3 fs-6">
+                        {{ quiz.description|linebreaksbr }}
+                    </div>
+                    {% if not quiz.is_published %}
+                    <div class="alert alert-warning mt-2 mb-0 py-2 px-3">
+                        <strong>This quiz is not yet published.</strong> Students cannot see or attempt it.
+                    </div>
+                    {% endif %}
                 </div>
-                <div class="card-body p-4">
-                    {% for question in questions %}
-                        <div class="mb-4">
-                            <h5>Q{{ forloop.counter }}) {{ question.text }}</h5>
-                            <span class="badge bg-info">{{ question.get_question_type_display }}</span>
-                            <ul>
-                                {% for answer in question.answers.all %}
-                                    <li>
-                                        {{ answer.text }}{% if answer.is_correct %} <span class="badge bg-success">Correct</span>{% endif %}
-                                    </li>
+            </div>
+
+            {% if request.user.is_staff %}
+
+            <!-- Question Details Card (UI Friendly grouping) -->
+                <div class="card shadow-sm border-0 p-0 mb-5 question-list-card rounded-4">
+                    <div class="card-header bg-white rounded-top-4 px-4 pb-2 pt-3">
+                        <h4 class="fw-semibold mb-0 fs-5">
+                            <i class="bi bi-question-circle me-2"></i> Questions
+                        </h4>
+                    </div>
+                    <div class="card-body px-4 py-4 d-flex flex-column gap-4">
+                        {% if questions %}
+                            <ol class="question-list list-unstyled px-0 mb-0">
+                                {% for question in questions %}
+                                <li class="mb-4 pb-4 px-0 border-bottom rounded-3 question-block">
+                                    <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
+                                        <span class="badge rounded-pill bg-info text-dark fs-7 mb-2 align-self-center" style="letter-spacing:.03em;">{{ question.get_question_type_display }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
+                                        <span class="fw-semibold fs-6 text-primary mb-2">
+                                            Q{{ forloop.counter }})
+                                            {% if question.question_type == "fill_in_the_blanks" %}
+                                                {# Split text by [blank], then interleave inline button answers #}
+                                                {% with segments=question.text|split:'[blank]' %}
+                                                    {% for seg in segments %}
+                                                        {{ seg|safe }}
+                                                        {% if not forloop.last %}
+                                                            <button type="button"
+                                                                    class="btn btn-theme-maroon-outline fill-blank-view-inline"
+                                                                    tabindex="-1"
+                                                                    style="display:inline-block; min-width:64px; font-size:1em; vertical-align:middle; padding:2.5px 12px; margin:0 2px 0 2px; white-space:normal; pointer-events:none; cursor:default;">
+                                                                {{ question.answers.all|index:forloop.counter0|default:"..." }}
+                                                            </button>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% endwith %}
+                                            {% else %}
+                                                {{ question.text }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="ps-2 ms-2">
+                                        {% if question.question_type == "multiple_choice" or question.question_type == "multiple_answer" %}
+                                            <div class="choice-btn-group">
+                                            {% for answer in question.answers.all %}
+                                                <button type="button"
+                                                        class="btn btn-theme-maroon-outline text-center{% if answer.is_correct %} selected correct-answer-btn{% endif %}"
+                                                        tabindex="-1"
+                                                        style="cursor:default; pointer-events:none; margin-bottom:5px;">
+                                                    {{ answer.text }}
+                                                </button>
+                                            {% endfor %}
+                                            </div>
+                                        {% elif question.question_type == "true_false" %}
+                                            <div class="choice-btn-row d-flex">
+                                            {% for answer in question.answers.all %}
+                                                <div class="choice-btn-col-6">
+                                                    <button type="button"
+                                                            class="btn btn-theme-maroon-outline text-center{% if answer.is_correct %} selected correct-answer-btn{% endif %}"
+                                                            tabindex="-1"
+                                                            style="cursor:default; pointer-events:none; margin-bottom:5px; width:100%;">
+                                                        {{ answer.text }}
+                                                    </button>
+                                                </div>
+                                            {% endfor %}
+                                            </div>
+                                        {% elif question.question_type != "fill_in_the_blanks" %}
+                                            <!-- Other question types -->
+                                            <div class="choice-btn-group">
+                                                {% for answer in question.answers.all %}
+                                                    <button type="button"
+                                                            class="btn btn-theme-maroon-outline text-center{% if answer.is_correct %} selected correct-answer-btn{% endif %}"
+                                                            tabindex="-1"
+                                                            style="cursor:default; pointer-events:none; margin-bottom: 5px;">
+                                                        {{ answer.text }}
+                                                    </button>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        {% if question.explanation %}
+                                        <div class="alert alert-info py-2 px-3 mb-0 mt-2" style="font-size:0.98rem;">
+                                            <strong>Explanation:</strong> {{ question.explanation }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </li>
                                 {% endfor %}
-                            </ul>
-                            {% if question.explanation %}
-                                <div class="text-muted">{{ question.explanation }}</div>
+                            </ol>
+                        {% else %}
+                            <div class="alert alert-warning">No questions available for this quiz yet.</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+           {% endif %}
+
+            <!-- Questions Modal -->
+            <div class="modal fade" id="questionsModal" tabindex="-1" aria-labelledby="questionsModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content rounded-3">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="questionsModalLabel">
+                                <i class="bi bi-eye me-2"></i> Quiz Questions
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            {% if questions %}
+                                {% for question in questions %}
+                                    <div class="mb-4">
+                                        <h5>Q{{ forloop.counter }}) {{ question.text }}</h5>
+                                        <span class="badge bg-info">{{ question.get_question_type_display }}</span>
+                                        <ul>
+                                            {% for answer in question.answers.all %}
+                                                <li>
+                                                    {{ answer.text }}{% if answer.is_correct %} <span class="badge bg-success">Correct</span>{% endif %}
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% if question.explanation %}
+                                            <div class="text-muted">{{ question.explanation }}</div>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-warning">No questions available for this quiz yet.</div>
                             {% endif %}
                         </div>
-                    {% endfor %}
-                    {% if questions|length == 0 %}
-                        <div class="alert alert-warning">No questions available for this quiz yet.</div>
-                    {% endif %}
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-theme-muted" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
                 </div>
             </div>
-            
-            <!-- Leaderboard Display Card -->
-            <div class="quiz-card card grading-period-card border-0 shadow-sm mb-5" id="leaderboard-table">
-                <div class="card-header bg-white pb-2 pt-3 px-4 border-0">
-                    <h4 class="fw-semibold mb-0" style="font-size:1.35rem;">
-                        <i class="bi bi-trophy me-2"></i>Leaderboard
-                    </h4>
-                </div>
-                <div class="card-body p-4">
-                    {% if leaderboard_page_obj and leaderboard_page_obj.object_list|length > 0 %}
-                    <div class="table-responsive">
-                        <table class="table leaderboard-table align-middle">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Rank</th>
-                                    <th scope="col">User</th>
-                                    <th scope="col">Score</th>
-                                    <th scope="col">Percentage</th>
-                                    <th scope="col">Passed</th>
-                                    <th scope="col">Date Taken</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for attempt in leaderboard_page_obj %}
-                                <tr>
-                                    <td>{{ leaderboard_page_obj.start_index|add:forloop.counter0 }}</td>
-                                    <td>
-                                        {{ attempt.user.get_full_name|default:attempt.user.username }}
-                                    </td>
-                                    <td>
-                                        {{ attempt.raw_points|floatformat:0 }} / {{ attempt.total_points|floatformat:0 }}
-                                    </td>
-                                    <td>
-                                        {{ attempt.score|smart_percent }}%
-                                    </td>
-                                    <td>
-                                        {% if attempt.passed %}
-                                            <span class="badge bg-success">Passed</span>
-                                        {% else %}
-                                            <span class="badge bg-danger">Failed</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <span class="local-time" data-datetime="{{ attempt.start_time|date:"c" }}">
-                                            {{ attempt.start_time|date:"M d, Y H:i" }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+
+            <!-- Results Modal -->
+            <div class="modal fade" id="resultsModal" tabindex="-1" aria-labelledby="resultsModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content rounded-3">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="resultsModalLabel">
+                                <i class="bi bi-table me-2"></i> Quiz Results
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row mb-3">
+                                <!-- Section Filter -->
+                                <div class="col-md-4 mb-2">
+                                    <label for="sectionDropdown" class="form-label mb-1">Filter by Section:</label>
+                                    <select id="sectionDropdown" class="form-select form-control">
+                                        <option value="">All Sections</option>
+                                        {% for sec_val, sec_label in section_choices %}
+                                            <option value="{{ sec_val }}">{{ sec_label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <!-- Search -->
+                                <div class="col-md-4 mb-2">
+                                    <label for="resultSearch" class="form-label mb-1">Search Name:</label>
+                                    <input id="resultSearch" type="text" class="form-control" placeholder="Search student name...">
+                                </div>
+                                <!-- Download Buttons -->
+                                <div class="col-md-4 mb-2 d-flex gap-2 align-items-end justify-content-md-end justify-content-start mt-auto">
+                                    <button id="downloadExcelBtn" class="btn btn-success btn-sm" type="button">
+                                        <i class="bi bi-file-earmark-excel"></i> Download as Excel
+                                    </button>
+                                    <button id="downloadDocBtn" class="btn btn-primary btn-sm" type="button">
+                                        <i class="bi bi-file-earmark-word"></i> Download as Docs
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive" id="resultsTableContainer">
+                                <table class="table leaderboard-table align-middle" id="resultsTable">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col" data-col="section">Section</th>
+                                            <th scope="col" data-col="name">Name</th>
+                                            <th scope="col" data-col="rawscore">Score</th>
+                                            <th scope="col" data-col="percent">Percentage</th>
+                                            <th scope="col" data-col="status">Status</th>
+                                            <th scope="col" data-col="date">Date Taken</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for attempt in user_attempts %}
+                                        {% with section=attempt.user.section %}
+                                        <tr data-section="{{ section }}">
+                                            <td>
+                                                {% with label=None %}
+                                                    {% for sec_val, sec_label in section_choices %}
+                                                        {% if sec_val == section %}
+                                                            {% with label=sec_label %}{% endwith %}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                    {{ label|default:section|default:"N/A" }}
+                                                {% endwith %}
+                                            </td>
+                                            <td>{{ attempt.user.get_full_name|default:attempt.user.username }}</td>
+                                            <td data-raw="{{ attempt.raw_points|floatformat:2|default:0.0 }}" data-total="{{ attempt.total_points|floatformat:2|default:0.0 }}">
+                                                {{ attempt.raw_points|floatformat:0 }} / {{ attempt.total_points|floatformat:0 }}
+                                            </td>
+                                            <td data-sort="{{ attempt.score|floatformat:2 }}">{{ attempt.score|smart_percent }}%</td>
+                                            <td data-sort="{% if attempt.passed %}1{% else %}0{% endif %}">
+                                                {% if attempt.passed %}
+                                                    <span class="badge bg-success">Passed</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">Failed</span>
+                                                {% endif %}
+                                            </td>
+                                            <td data-sort="{{ attempt.start_time|date:'c' }}">
+                                                <span class="local-time" data-datetime="{{ attempt.start_time|date:"c" }}">
+                                                    {{ attempt.start_time|date:"M d, Y H:i" }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% endwith %}
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted">No results found.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="resultsPagination" class="access-theme-pagination"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-theme-muted" data-bs-dismiss="modal">Close</button>
+                        </div>
                     </div>
-                    <nav aria-label="Leaderboard pagination" class="mt-3">
-                        <ul class="pagination justify-content-center access-theme-pagination mb-0 gap-2">
-                            {% if leaderboard_page_obj.has_previous %}
-                            <li class="page-item">
-                                <a class="page-link btn-access-pagination" href="?leaderboard_page={{ leaderboard_page_obj.previous_page_number }}#leaderboard-table">
-                                    &laquo; Previous
-                                </a>
-                            </li>
-                            {% endif %}
-                            {% for num in leaderboard_page_obj.paginator.page_range %}
-                                {% if leaderboard_page_obj.number == num %}
-                                <li class="page-item active">
-                                    <span class="page-link btn-access-pagination active-btn">{{ num }}</span>
-                                </li>
-                                {% else %}
-                                <li class="page-item">
-                                    <a class="page-link btn-access-pagination" href="?leaderboard_page={{ num }}#leaderboard-table">{{ num }}</a>
-                                </li>
-                                {% endif %}
-                            {% endfor %}
-                            {% if leaderboard_page_obj.has_next %}
-                            <li class="page-item">
-                                <a class="page-link btn-access-pagination" href="?leaderboard_page={{ leaderboard_page_obj.next_page_number }}#leaderboard-table">
-                                    Next &raquo;
-                                </a>
-                            </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
-                    {% else %}
-                        <div class="alert alert-info">No quiz attempts yet.</div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -226,6 +348,38 @@
 </div>
 
 <style>
+/* --- Results Modal Table Pagination & Scroll Enhancements --- */
+#resultsTableContainer {
+  max-height: 400px;
+  overflow-y: auto;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 0.8rem;
+}
+.leaderboard-table th {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    position: relative;
+}
+.leaderboard-table th {
+    position: relative;
+}
+.leaderboard-table th .sort-indicator {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.9em;
+}
+.leaderboard-table th.sorted-asc,
+.leaderboard-table th.sorted-desc {
+    background-color: rgba(106, 24, 41, 0.05);
+}
+.access-theme-pagination {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
 body {
     font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -258,17 +412,47 @@ body {
 .breadcrumb .breadcrumb-link:hover, .breadcrumb .breadcrumb-link:focus {
     border-bottom: 2px solid var(--primary-color);
 }
-.quiz-card,
-.grading-period-card {
-    border-radius: 14px;
+/* --- Quiz Page Redesign --- */
+.quiz-main-card {
     background: #fff;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
-    overflow: hidden;
-    transition: box-shadow 0.18s;
+    border: 1.5px solid #e4e9f2;
 }
-.quiz-card:hover {
-    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
-    transform: translateY(-3px) scale(1.01);
+.question-list-card {
+    background: #fafbff;
+}
+.question-list .question-block:last-child {
+    border-bottom: 0 !important;
+}
+.question-list .question-block {
+    background: #f6f8fc;
+    box-shadow: 0 1px 4px rgba(86,113,156,.04);
+}
+.question-list .fw-semibold.fs-6 {
+    font-size: 1.13rem !important;
+}
+/* Ensure question text wraps in cards and never overflows */
+.question-list .fw-semibold.fs-6,
+.question-block .fw-semibold.fs-6,
+.question-list .question-block .fw-semibold,
+.question-list .question-block span,
+.question-list .question-block {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100%;
+    display: block;
+}
+.question-list ul li {
+    list-style: disc inside;
+    margin-left: 0.5em;
+}
+.question-list ul li .badge {
+    font-size: 0.82rem;
+    vertical-align: middle;
+}
+.card, .card-header, .card-body {
+    border-radius: 16px !important;
 }
 .theme-shadow {
     box-shadow: 0 1px 8px rgba(86, 113, 156,.10) !important;
@@ -311,23 +495,321 @@ body {
     color: #888 !important;
     border: 1px solid #eee;
 }
-@media (max-width: 767px) {
-    .quiz-card,
-    .grading-period-card {
-        margin-bottom: 2rem;
+@media (max-width: 900px) {
+    .quiz-main-card, .question-list-card {
+        padding-left: 0 !important; padding-right: 0 !important;
     }
-    h2 {
-        font-size: 1.4rem !important;
+    .card-header, .card-body { padding-left: 1rem !important; padding-right: 1rem !important; }
+    .d-flex.flex-wrap.gap-2.align-items-center { justify-content: start !important; }
+}
+@media (max-width: 576px) {
+    .quiz-main-card, .question-list-card { padding: 0 !important; }
+    .btn.btn-sm, .btn-theme-primary { width: 100%; min-width: 0; margin-bottom: 8px; }
+    .card-header, .card-body { padding: 0.7rem !important; }
+    .question-block { padding: 0.7rem !important; }
+}
+
+/* Quiz answer button styles */
+:root {
+    --maroon: #6A1829;
+    --maroon-hover: #a32c2c;
+    --white: #fff;
+}
+.btn-theme-maroon-outline {
+    font-size: 1.13rem;
+    font-weight: 600;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--maroon);
+    border: 2px solid var(--maroon);
+    transition: background 0.15s, color 0.15s;
+    padding: 0.75rem 1.1rem;
+    width: 100%;
+    text-align: left;
+    box-shadow: 0 1px 2px rgba(128,0,0,0.10);
+    margin-bottom: 0.3rem;
+}
+.btn-theme-maroon-outline.selected,
+.btn-theme-maroon-outline.correct-answer-btn {
+    background: var(--maroon);
+    color: #fff;
+}
+.choice-btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-bottom: 0.6rem;
+}
+/* Center all answer choice text */
+.btn-theme-maroon-outline {
+    text-align: center !important;
+}
+
+/* True/false: Side by side columns */
+.choice-btn-row {
+    display: flex;
+    gap: 1rem;
+    margin: 0 0 1rem 0;
+}
+.choice-btn-col-6 {
+    flex: 0 0 48%;
+    max-width: 48%;
+}
+
+/* For mobile, stack vertically */
+@media (max-width: 575px) {
+    .choice-btn-row {
+        flex-direction: column;
+        gap: 0.75rem;
     }
-    .btn-theme-primary,
-    .btn-theme-success,
-    .btn-theme-muted  {
-        font-size: 0.97rem;
-        padding: 0.72rem 0.8rem;
+    .choice-btn-col-6 {
+        max-width: 100%;
+        flex: 1 1 100%;
     }
 }
+
+/* Ensures fill-in-the-blanks answer button sits inline and does not force a line break */
+.fill-blank-view-inline {
+    display: inline-block !important;
+    margin-bottom: 0px !important;
+    vertical-align: middle !important;
+    min-width: 64px;
+    padding: 2.5px 12px;
+    white-space: normal;
+    line-height: 1.3;
+}
+.btn.btn-theme-maroon-outline.fill-blank-view-inline.selected,
+.btn.btn-theme-maroon-outline.fill-blank-view-inline.correct-answer-btn {
+    background: #fff !important;
+    color: var(--maroon) !important;
+    border: 2px solid var(--maroon) !important;
+}
+/* Remove possible full-width from base choice-btn-group for inline use */
+.question-list .fw-semibold.fs-6 .btn-theme-maroon-outline.fill-blank-view-inline {
+    width: auto !important;
+    min-width: 64px;
+    max-width: 90vw;
+    }
 </style>
 <script>
+function confirmPublishUnpublishView(isPublished){
+    if(isPublished == 'True' || isPublished === true)
+        return confirm('Unpublishing will allow editing, but students who already took the quiz may be affected. Continue?');
+    else
+        return confirm('Publishing will lock this quiz from further editing by admins and make it visible to students. Continue?');
+}
+
+// --- Unified Sortable & Paginated Results Table with Filtering ---
+(function() {
+    // Configuration
+    const MAX_ROWS = 10;
+    let currentSort = {colIdx: null, direction: 1};
+    let currentPage = 1;
+
+    // Elements
+    let sectionDropdown, searchInput, table, tbody, rows, headers, pagDiv;
+
+    // On DOMContentLoaded, initialize logic
+    document.addEventListener('DOMContentLoaded', function() {
+        sectionDropdown = document.getElementById('sectionDropdown');
+        searchInput = document.getElementById('resultSearch');
+        table = document.getElementById('resultsTable');
+        tbody = table.querySelector('tbody');
+        headers = table.querySelectorAll('thead th');
+        pagDiv = document.getElementById('resultsPagination');
+        rows = Array.from(tbody.querySelectorAll('tr')).filter(row => !row.querySelector('td[colspan]'));
+
+        // -- Sorting
+        headers.forEach((th, idx) => {
+            th.addEventListener('click', function() {
+                const col = th.getAttribute('data-col');
+                const isSame = currentSort.colIdx === idx;
+                // Remove sorted classes from all headers
+                headers.forEach(h => h.classList.remove('sorted-asc', 'sorted-desc'));
+                // Toggle between ascending and descending if the same header, else ascending by default
+                if (isSame) {
+                    currentSort.direction *= -1;
+                } else {
+                    currentSort.colIdx = idx;
+                    currentSort.direction = 1;
+                }
+                th.classList.add(currentSort.direction === 1 ? 'sorted-asc' : 'sorted-desc');
+                // Sort rows and re-render the table
+                rows.sort((a, b) => compareRows(a, b, col, currentSort.direction));
+                render();
+            });
+            // Add sort icons for clarity, if not present
+            if (!th.querySelector('.sort-indicator')) {
+                const indicator = document.createElement('span');
+                indicator.className = 'sort-indicator';
+                indicator.style.marginLeft = '4px';
+                th.appendChild(indicator);
+            }
+        });
+
+        // -- Filtering
+        if (sectionDropdown) sectionDropdown.addEventListener('change', function() { currentPage = 1; render(); });
+        if (searchInput) searchInput.addEventListener('input', function() { currentPage = 1; render(); });
+
+        // Initial render
+        render();
+    });
+
+    // Helper: compare function for sorting
+    function compareRows(a, b, col, direction) {
+        let aval, bval;
+        switch (col) {
+            case 'section':
+                aval = (a.children[0].innerText || '').trim();
+                bval = (b.children[0].innerText || '').trim();
+                break;
+            case 'name':
+                aval = (a.children[1].innerText || '').trim().toLowerCase();
+                bval = (b.children[1].innerText || '').trim().toLowerCase();
+                break;
+            case 'rawscore':
+                aval = parseFloat(a.children[2].getAttribute('data-raw')) || 0;
+                bval = parseFloat(b.children[2].getAttribute('data-raw')) || 0;
+                if (aval === bval) { // tie by total points
+                    aval = parseFloat(a.children[2].getAttribute('data-total')) || 0;
+                    bval = parseFloat(b.children[2].getAttribute('data-total')) || 0;
+                }
+                break;
+            case 'percent':
+                aval = parseFloat((a.children[3].getAttribute('data-sort')) || a.children[3].innerText) || 0;
+                bval = parseFloat((b.children[3].getAttribute('data-sort')) || b.children[3].innerText) || 0;
+                break;
+            case 'status':
+                aval = parseInt(a.children[4].getAttribute('data-sort')) || 0;
+                bval = parseInt(b.children[4].getAttribute('data-sort')) || 0;
+                break;
+            case 'date':
+                aval = a.children[5].getAttribute('data-sort') || "";
+                bval = b.children[5].getAttribute('data-sort') || "";
+                break;
+            default:
+                aval = a.children[col].innerText || '';
+                bval = b.children[col].innerText || '';
+        }
+        if (aval < bval) return -1 * direction;
+        if (aval > bval) return 1 * direction;
+        return 0;
+    }
+
+    // Unified render: filter, sort, paginate, display
+    function render() {
+        let section = sectionDropdown ? sectionDropdown.value : '';
+        let search = searchInput ? searchInput.value.trim().toLowerCase() : '';
+        // Filtered rows
+        let filteredRows = rows.filter(row => {
+            const rowSection = row.getAttribute('data-section');
+            const name = row.children[1].textContent.toLowerCase();
+            const matchSection = !section || rowSection === section;
+            const matchSearch = !search || name.includes(search);
+            return matchSection && matchSearch;
+        });
+
+        // If sorted, apply sorting to the filtered rows
+        if (currentSort.colIdx !== null) {
+            const th = headers[currentSort.colIdx];
+            const col = th.getAttribute('data-col');
+            filteredRows.sort((a, b) => compareRows(a, b, col, currentSort.direction));
+            // Update sort indicators
+            headers.forEach((h, idx) => {
+                const indicator = h.querySelector('.sort-indicator');
+                if (indicator) {
+                    if (currentSort.colIdx === idx) {
+                        indicator.textContent = currentSort.direction === 1 ? '▲' : '▼';
+                    } else {
+                        indicator.textContent = '';
+                    }
+                }
+            });
+        } else {
+            // Clear sort indicators
+            headers.forEach((h) => {
+                const indicator = h.querySelector('.sort-indicator');
+                if (indicator) indicator.textContent = '';
+            });
+        }
+
+        // Hide all rows first and clear tbody
+        rows.forEach(row => { row.style.display = 'none'; });
+        while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+
+        // Paginate
+        const totalRows = filteredRows.length;
+        const totalPages = Math.ceil(totalRows / MAX_ROWS) || 1;
+        currentPage = Math.max(1, Math.min(currentPage, totalPages));
+        const startIdx = (currentPage - 1) * MAX_ROWS;
+        const endIdx = startIdx + MAX_ROWS;
+        
+        // Append visible (filtered, sorted) rows in DOM order
+        const visibleRows = filteredRows.slice(startIdx, endIdx);
+        visibleRows.forEach(row => {
+            row.style.display = '';
+            tbody.appendChild(row);
+        });
+
+        // Render pagination controls
+        renderPaginationControls(totalPages);
+    }
+
+    function gotoPage(page) {
+        currentPage = page;
+        render();
+    }
+
+    function renderPaginationControls(numPages) {
+        if (!pagDiv) return;
+        pagDiv.innerHTML = "";
+        if (numPages <= 1) return;
+        let btn;
+
+        // Prev button
+        btn = document.createElement('span');
+        btn.className = "page-link";
+        btn.textContent = "«";
+        btn.tabIndex = 0;
+        btn.onclick = () => { if (currentPage > 1) gotoPage(currentPage - 1); };
+        if (currentPage === 1) btn.style.opacity = "0.5";
+        pagDiv.appendChild(btn);
+
+        // Page numbers (max 5 at a time)
+        let start = Math.max(1, currentPage - 2), end = Math.min(numPages, start + 4);
+        if (end - start < 4) start = Math.max(1, end - 4);
+        for (let p = start; p <= end; ++p) {
+            btn = document.createElement('span');
+            btn.className = "page-link" + (p === currentPage ? " active-btn" : "");
+            btn.textContent = p;
+            btn.tabIndex = 0;
+            btn.onclick = () => gotoPage(p);
+            pagDiv.appendChild(btn);
+        }
+
+        // Next button
+        btn = document.createElement('span');
+        btn.className = "page-link";
+        btn.textContent = "»";
+        btn.tabIndex = 0;
+        btn.onclick = () => { if (currentPage < numPages) gotoPage(currentPage + 1); };
+        if (currentPage === numPages) btn.style.opacity = "0.5";
+        pagDiv.appendChild(btn);
+    }
+
+    // When modal is opened, reset search & filter and update display/pagination
+    document.addEventListener('shown.bs.modal', function (e) {
+        if (e.target && e.target.id === 'resultsModal') {
+            if (sectionDropdown) sectionDropdown.selectedIndex = 0;
+            if (searchInput) searchInput.value = '';
+            currentPage = 1;
+            render();
+            const container = document.getElementById('resultsTableContainer');
+            if (container) container.scrollTop = 0;
+        }
+    });
+})();
+
 /*
  * Convert all timestamps to local Philippine time (Asia/Manila, UTC+8) in 12hr format with AM/PM.
  * Example: "Apr 15, 2024 06:32 PM"
@@ -358,6 +840,352 @@ window.addEventListener('DOMContentLoaded', function() {
       el.textContent = toPhilippineTimeString(el.dataset.datetime);
     }
   });
+});
+</script>
+
+<!-- SheetJS (XLSX) and docx.js UMD CDN -->
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/docx@8.2.2/build/index.umd.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- Excel Export with Beautified Styling ---
+    document.getElementById('downloadExcelBtn').addEventListener('click', function() {
+        const quizTitle = document.querySelector('h2.fw-bold').innerText.trim().replace(/[^a-zA-Z0-9]/g, '_');
+        const table = document.getElementById('resultsTable');
+        const headerCells = Array.from(table.querySelectorAll('thead th'));
+        const rows = Array.from(table.querySelectorAll('tbody tr'))
+            .filter(row => row.style.display !== 'none' && !row.querySelector('td[colspan]'));
+
+        // App color references
+        const MAROON = '6A1829';
+        const MAROON_RGB = 'rgba(106,24,41,1)';
+        const MAROON_FG = 'FFFFFF';
+        const APP_BG = 'FAFBFF'; // Question card background
+        const LIGHT_BG = 'F6F8FC'; // Lighter gray for rows
+        const BORDER = 'e4e9f2';
+        const PASS_BG = 'DFF0D8';
+        const PASS_TEXT = '388E3C';
+        const FAIL_BG = 'F8D7DA';
+        const FAIL_TEXT = 'C62828';
+        const FONT = 'Poppins,Segoe UI,Tahoma,Geneva,Verdana,sans-serif';
+
+        // Find special columns
+        let nameCol = -1, scoreCol = -1, percentCol = -1, statusCol = -1;
+        headerCells.forEach((th, i) => {
+            const head = th.innerText.trim().toLowerCase();
+            if (head === 'name') nameCol = i;
+            if (head.includes('score')) scoreCol = i;
+            if (head.includes('percent')) percentCol = i;
+            if (head.includes('status')) statusCol = i;
+        });
+
+        // Build header row with name split
+        const headers = [];
+        headerCells.forEach((th, i) => {
+            if (i === nameCol) {
+                headers.push('Last Name', 'First Name', 'Middle Name');
+            } else {
+                headers.push(th.innerText.trim());
+            }
+        });
+
+        const data = [headers];
+        function splitName(str) {
+            str = str.trim();
+            if (str.includes(',')) {
+                let [last, rest] = str.split(",", 2);
+                let restSplit = rest.trim().split(" ");
+                let first = restSplit[0] || '';
+                let middle = restSplit.slice(1).join(" ");
+                return [last.trim(), first.trim(), middle.trim()];
+            }
+            let parts = str.split(" ");
+            if(parts.length === 2)  return [parts[1].trim(), parts[0].trim(), ""];
+            if(parts.length > 2)    return [parts[parts.length-1], parts[0], parts.slice(1,parts.length-1).join(" ")];
+            return [str, "", ""];
+        }
+
+        rows.forEach(row => {
+            const cells = Array.from(row.children);
+            let rowData = [];
+            for(let i=0; i<cells.length; i++) {
+                if (i === nameCol) {
+                    let [last, first, middle] = splitName(cells[i].innerText.trim());
+                    rowData.push(last, first, middle);
+                } else if (i === scoreCol) {
+                    const raw = Math.round(Number(cells[i].getAttribute('data-raw')) || 0);
+                    const total = Math.round(Number(cells[i].getAttribute('data-total')) || 0);
+                    rowData.push(`${raw} / ${total}`);
+                } else if (i === percentCol) {
+                    let raw = cells[i].innerText.replace('%','').trim();
+                    let asPerc = parseFloat(raw);
+                    if (asPerc > 1.0) asPerc = asPerc / 100;
+                    rowData.push(asPerc);
+                } else {
+                    rowData.push(cells[i].innerText.trim());
+                }
+            }
+            data.push(rowData);
+        });
+
+        // Sheet setup
+        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        // Column widths as per UI
+        ws['!cols'] = [
+            { wch: 16 }, // Section
+            { wch: 18 }, // Last Name
+            { wch: 18 }, // First Name
+            { wch: 16 }, // Middle Name
+            { wch: 14 }, // Score
+            { wch: 14 }, // Percentage
+            { wch: 14 }, // Status
+            { wch: 22 }  // Date Taken
+        ];
+
+        //--------------------------------------------
+        // --- STYLING ---
+        //--------------------------------------------
+
+        // Common fonts
+        function appFont(sz, bold, color) {
+            return {
+                name: 'Poppins',
+                sz: sz,
+                color: { rgb: color || MAROON },
+                bold: !!bold
+            };
+        }
+
+        // Header row style
+        const headerStyle = {
+            font: { name: 'Poppins', sz:12, bold: true, color:{rgb: MAROON_FG} },
+            fill: { fgColor: { rgb: MAROON } },
+            alignment: { vertical: 'center', horizontal: 'center' },
+            border: {
+                top:    { style: "thin", color:{rgb:BORDER} },
+                bottom: { style: "thin", color:{rgb:BORDER} },
+                left:   { style: "thin", color:{rgb:BORDER} },
+                right:  { style: "thin", color:{rgb:BORDER} },
+            }
+        };
+
+        // Main cell style
+        const baseStyle = {
+            font: { name: 'Poppins', sz:11 },
+            fill: { fgColor: { rgb: APP_BG } },
+            alignment: { vertical:"center", horizontal: "center", wrapText:true },
+            border: headerStyle.border
+        };
+
+        // Alternate zebra row style
+        const zebraStyle = {
+            ...baseStyle,
+            fill: { fgColor: { rgb: LIGHT_BG } }
+        };
+
+        // "Passed"/"Failed" badge style as cell backgrounds
+        const passStatusStyle = {
+            ...baseStyle,
+            fill: { fgColor: { rgb: PASS_BG } },
+            font: { ...baseStyle.font, color: {rgb: PASS_TEXT}, bold: true }
+        };
+        const failStatusStyle = {
+            ...baseStyle,
+            fill: { fgColor: { rgb: FAIL_BG } },
+            font: { ...baseStyle.font, color: {rgb: FAIL_TEXT}, bold: true }
+        };
+
+        // Percentage style (as 0.00%)
+        const percentStyle = {
+            ...baseStyle,
+            numFmt: '0.00%',
+        };
+
+        // Apply header style
+        for (let c = 0; c < headers.length; ++c) {
+            const addr = XLSX.utils.encode_cell({c, r:0});
+            if (ws[addr]) ws[addr].s = headerStyle;
+        }
+
+        // Data rows
+        for (let r = 1; r < data.length; ++r) {
+            let style = (r % 2 === 0) ? baseStyle : zebraStyle;
+            for (let c = 0; c < headers.length; ++c) {
+                const addr = XLSX.utils.encode_cell({c, r});
+                if (!ws[addr]) continue;
+                ws[addr].s = { ...style };
+                // Passed/Failed badge column
+                if (c === statusCol + 2) { // after 3 name cols.
+                    let txt = (ws[addr].v || '').toString().toLowerCase();
+                    if (txt.includes('pass')) ws[addr].s = passStatusStyle;
+                    else if (txt.includes('fail')) ws[addr].s = failStatusStyle;
+                }
+                // Percentage column
+                if (c === percentCol + 2) {
+                    ws[addr].s = percentStyle;
+                    ws[addr].z = '0.00%';
+                    ws[addr].t = 'n';
+                }
+            }
+        }
+
+        // Workbook and save
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Results");
+        XLSX.writeFile(wb, `${quizTitle}_Results.xlsx`);
+    });
+
+
+    // --- Word Export (DOCX) with Beautified Styling ---
+    document.getElementById('downloadDocBtn').addEventListener('click', function() {
+        if (!window.docx) {
+            alert('Word export failed: The docx.js library is not loaded. Please check your network or try again in a few seconds.');
+            return;
+        }
+        const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType, ShadingType, BorderStyle } = window.docx;
+
+        // App color references
+        const MAROON = '6A1829';
+        const MAROON_TEXT = '6A1829';
+        const HEADER_BG = MAROON;
+        const HEADER_TEXT = 'FFFFFF';
+        const BORDER_COLOR = 'E4E9F2';
+        const APP_BG = 'FAFBFF';
+        const LIGHT_BG = 'F6F8FC';
+        const PASS_BG = 'DFF0D8';
+        const PASS_TEXT = '388E3C';
+        const FAIL_BG = 'F8D7DA';
+        const FAIL_TEXT = 'C62828';
+        const APP_FONT = 'Poppins';
+        const TABLE_MARGIN = { top: 100, bottom: 100 };
+
+        const quizTitle = document.querySelector('h2.fw-bold').innerText.trim();
+        const table = document.getElementById('resultsTable');
+        const headerRow = table.querySelector('thead tr');
+        const visibleRows = Array.from(table.querySelectorAll('tbody tr'))
+            .filter(row => row.style.display !== 'none' && !row.querySelector('td[colspan]'));
+
+        // Header
+        function createHeaderCell(text) {
+            return new TableCell({
+                children: [new Paragraph({
+                    children: [
+                        new TextRun({
+                            text,
+                            bold: true,
+                            color: HEADER_TEXT,
+                            font: APP_FONT
+                        })
+                    ],
+                    alignment: AlignmentType.CENTER,
+                })],
+                shading: {
+                    type: ShadingType.CLEAR,
+                    fill: HEADER_BG
+                },
+                margins: { top: 140, bottom: 140, left: 140, right: 140 },
+                borders: {
+                    top:    { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 6 },
+                    bottom: { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 6 },
+                    left:   { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 6 },
+                    right:  { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 6 },
+                }
+            });
+        }
+
+        // Data
+        function createDataCell(text, rowIdx, colIdx, isBadge = false) {
+            // Zebra background
+            let bg = (rowIdx % 2 === 1) ? LIGHT_BG : APP_BG;
+            let fontColor = MAROON_TEXT, bold = false;
+            let shades = undefined;
+
+            // Status badge look
+            if (isBadge) {
+                bold = true;
+                if (text.toLowerCase().includes('pass')) {
+                    fontColor = PASS_TEXT;
+                    shades = { type: ShadingType.CLEAR, fill: PASS_BG };
+                }
+                else if (text.toLowerCase().includes('fail')) {
+                    fontColor = FAIL_TEXT;
+                    shades = { type: ShadingType.CLEAR, fill: FAIL_BG };
+                }
+            }
+            return new TableCell({
+                children: [
+                    new Paragraph({
+                        children: [new TextRun({
+                            text,
+                            bold,
+                            color: fontColor,
+                            font: APP_FONT
+                        })],
+                        alignment: AlignmentType.CENTER,
+                    })
+                ],
+                shading: shades || { type: ShadingType.CLEAR, fill: bg },
+                margins: { top: 140, bottom: 140, left: 140, right: 140 },
+                borders: {
+                    top:    { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 4 },
+                    bottom: { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 4 },
+                    left:   { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 4 },
+                    right:  { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 4 },
+                }
+            });
+        }
+
+        const headerCells = Array.from(headerRow.cells).map(cell =>
+            createHeaderCell(cell.innerText.trim())
+        );
+
+        const dataRows = visibleRows.map((row, ridx) => {
+            return new TableRow({
+                children: Array.from(row.cells).map((cell, cidx) => {
+                    // Status col matches app badge style
+                    if (cidx === 4) {
+                        return createDataCell(cell.innerText.trim(), ridx, cidx, true);
+                    }
+                    // All else: app font, maroon, zebra
+                    return createDataCell(cell.innerText.trim(), ridx, cidx, false);
+                })
+            });
+        });
+
+        const docTable = new Table({
+            rows: [new TableRow({ children: headerCells }), ...dataRows],
+            width: { size: 100, type: 'pct' },
+            margins: TABLE_MARGIN,
+            alignment: AlignmentType.CENTER,
+        });
+
+        const doc = new Document({
+            sections: [{
+                children: [
+                    new Paragraph({
+                        text: `${quizTitle} - Quiz Results`,
+                        heading: HeadingLevel.HEADING_1,
+                        alignment: AlignmentType.CENTER,
+                        spacing: { after: 100 }
+                    }),
+                    new Paragraph({ text: "" }),
+                    docTable
+                ]
+            }]
+        });
+
+        Packer.toBlob(doc).then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${quizTitle}_Results.docx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    });
 });
 </script>
 {% endblock %}

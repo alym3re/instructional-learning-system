@@ -303,7 +303,7 @@ def admin_dashboard(request):
         last_login__gte=timezone.now() - timedelta(days=30)
     ).count()
     total_lessons = Lesson.objects.filter(is_active=True, is_archived=False).count()
-    total_quizzes = Quiz.objects.count()
+    total_quizzes = Quiz.objects.filter(is_published=True, is_archived=False).count()
     total_exams = Exam.objects.count()
 
     recent_activities = ActivityLog.objects.all().order_by('-timestamp')[:10]
@@ -484,6 +484,63 @@ def admin_dashboard(request):
             'total_points': stu['total_points'],
         })
 
+    # Calculate student grades
+    students_grades = []
+    try:
+        from students.models import Student
+        has_student_model = True
+    except ImportError:
+        has_student_model = False
+        
+    for student in all_students:
+        # Try to get section information if available
+        section_name = None
+        if has_student_model:
+            try:
+                student_profile = Student.objects.get(user=student)
+                section_name = getattr(student_profile, "section", None)
+                if callable(section_name):
+                    section_name = section_name()
+                elif hasattr(section_name, "name"):
+                    section_name = section_name.name
+            except Student.DoesNotExist:
+                pass
+        
+        # Find student in student_totals
+        student_data = next((s for s in student_totals if s['user_id'] == student.id), None)
+        if not student_data:
+            continue
+            
+        # Quiz and exam grades as percentages
+        quiz_percentage = 0
+        exam_percentage = 0
+        
+        # Compute based on available data
+        total_quiz_possible = 40  # If 40% is the weight
+        total_exam_possible = 60  # If 60% is the weight
+        
+        stu_quiz_points = student_data['quiz_points']
+        stu_exam_points = student_data['exam_points']
+        
+        # For demonstration, assume max points are normalized to 100 for each
+        max_quiz = 40  # max quiz percentage points
+        max_exam = 60  # max exam percentage points
+        
+        if max_quiz: 
+            quiz_percentage = stu_quiz_points / max_quiz * 40  # Convert to 40% scale
+        if max_exam: 
+            exam_percentage = stu_exam_points / max_exam * 60  # Convert to 60% scale
+        
+        weighted_grade = quiz_percentage + exam_percentage
+        
+        students_grades.append({
+            'section': section_name or "N/A",
+            'full_name': student_data['full_name'],
+            'quiz_grade': quiz_percentage,
+            'exam_grade': exam_percentage,
+            'grade': weighted_grade,
+        })
+
     context = {
         'total_users': total_users,
         'new_users_week': new_users_week,
@@ -497,6 +554,7 @@ def admin_dashboard(request):
         'grading_periods': GRADING_PERIODS,
         'period_stats': period_stats,
         'overall_rankings': overall_rankings,
+        'students_grades': students_grades,
     }
     return render(request, 'dashboard/admin.html', context)
 

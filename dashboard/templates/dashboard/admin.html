@@ -54,284 +54,108 @@
         </div>
     </div>
 
-
-    <!-- ========== GRADING PERIOD SUMMARIES ========== -->
-    <div class="row g-4">
-        {% for period_value, period_label in grading_periods %}
-        {% with stats=period_stats|get_item:period_value %}
-        <div class="col-md-6">
-            <div class="grading-period-card card border-0 shadow-sm h-100 position-relative">
-                <div class="card-body d-flex flex-column align-items-center p-5 justify-content-between w-100" style="min-height: 330px;">
-                    <h3 class="card-title fw-semibold mb-3" style="font-size:2.1rem;">{{ stats.label }}</h3>
-
-                    <div class="row">
-
-
-                    <!-- Lessons summary -->
-                      <div class="col-6 mb-2 text-center">
-                        <span class="badge bg-light theme-muted border fs-5 py-2 px-3">
-                            <i class="bi bi-book me-1"></i>
-                            {{ stats.total_lessons|default:0 }} Lessons
-                        </span>
-                      </div>
-
-                      <!-- Quizzes summary -->
-                      <div class="col-6 mb-2 text-center">
-                          <span class="badge bg-light theme-muted border fs-5 py-2 px-3">
-                              <i class="bi bi-question-circle me-1"></i>
-                              {{ stats.quizzes|length|default:0 }} Quizzes
-                          </span>
-                      </div>
-
-                    </div>
-
-
-                    <div class="d-grid gap-2 w-100">
-                        <button class="btn btn-theme-primary w-100"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalQuizRanking{{ period_value }}">
-                            <i class="bi bi-bar-chart me-2"></i> View Quiz Rankings
-                        </button>
-                        <button class="btn btn-theme-maroon-outline w-100"
-                                data-bs-toggle="modal"
-                                data-bs-target="#modalExamRanking{{ period_value }}">
-                            <i class="bi bi-graph-up-arrow me-2"></i> View Exam Rankings
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endwith %}
-        {% endfor %}
-    </div>
-
-    <!-- ========== OVERALL RANKINGS CARD ========== -->
+    <!-- ========== STUDENTS GRADES CARD ========== -->
     <div class="row mt-5">
-      <div class="col-12">
-        <div class="card border-maroon shadow-lg rounded-4 mb-5">
-          <div class="card-header bg-white border-bottom-0 pb-0 rounded-top-4 d-flex align-items-center justify-content-between">
-            <div>
-              <div class="d-flex align-items-center gap-2 mb-1">
-                <i class="bi bi-trophy-fill fs-2 text-maroon"></i>
-                <h4 class="fw-bold m-0 text-maroon" style="font-size: 2rem;">
-                  Overall Student Rankings
-                </h4>
-              </div>
-              <p class="mb-0 text-muted small">Based on cumulative quiz and exam points</p>
+        <div class="col-12">
+            <div class="card border-maroon shadow-lg rounded-4 mb-5">
+                <div class="card-header bg-white border-bottom-0 pb-0 rounded-top-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <i class="bi bi-bar-chart-fill fs-2 text-maroon"></i>
+                            <h4 class="fw-bold m-0 text-maroon" style="font-size: 2rem;">
+                                Students Grades
+                            </h4>
+                        </div>
+                        <p class="mb-0 text-muted small">Summarized grades – weighted 40% quizzes, 60% exams</p>
+                    </div>
+                    <div class="d-flex gap-2 mt-3 mt-md-0 flex-wrap">
+                                    <button id="downloadExcelBtn" class="btn btn-success btn-sm" type="button">
+                                        <i class="bi bi-file-earmark-excel"></i> Download as Excel
+                                    </button>
+                                    <button id="downloadDocBtn" class="btn btn-primary btn-sm" type="button">
+                                        <i class="bi bi-file-earmark-word"></i> Download as Docs
+                                    </button>
+                    </div>
+                </div>
+                <div class="card-body pt-3 pb-4">
+
+                    <form id="students-grades-filter-form" class="row g-2 mb-3 align-items-end" method="get" autocomplete="off">
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label fw-semibold mb-1">Grading Period</label>
+                            <select name="grading_period" class="form-select" onchange="this.form.submit();">
+                                <option value="overall"{% if selected_period == 'overall' %} selected{% endif %}>Overall</option>
+                                {% for period in grading_periods %}
+                                    <option value="{{ period.0 }}"{% if period.0 == selected_period %} selected{% endif %}>{{ period.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label fw-semibold mb-1">Section</label>
+                            <select name="section" class="form-select" onchange="this.form.submit();">
+                                <option value="all"{% if selected_section == 'all' %} selected{% endif %}>All Sections</option>
+                                {% for sec in class_sections %}
+                                    <option value="{{ sec.id }}"{% if sec.id|stringformat:"s" == selected_section %} selected{% endif %}>{{ sec.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label fw-semibold mb-1 visually-hidden">Search</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" placeholder="Search student name..." name="search" value="{{ search_query|default_if_none:'' }}">
+                                <button class="btn btn-secondary" type="submit">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div class="table-responsive">
+                        <table id="students-grades-table" class="table table-hover table-bordered align-middle rounded-4 shadow-sm overflow-hidden">
+                            <thead class="text-center rounded-top-4">
+                                <tr class="fw-semibold text-maroon bg-light">
+                                    <th class="bg-white rounded-start-3">Section</th>
+                                    <th class="bg-white">Name</th>
+                                    <th class="bg-white">Quiz Grade (out of 40%)</th>
+                                    <th class="bg-white">Exam Grade (out of 60%)</th>
+                                    <th class="bg-white rounded-end-3">Grade (40+60)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if students_grades %}
+                                {% for stu in students_grades %}
+                                <tr class="text-center align-middle">
+                                    <td class="fw-medium">{{ stu.section }}</td>
+                                    <td class="fw-semibold text-start" style="letter-spacing:0.5px;">{{ stu.full_name }}</td>
+                                    <td>
+                                        <span class="badge {% if stu.quiz_grade >= 36 %}bg-success{% elif stu.quiz_grade >= 28 %}bg-warning{% else %}bg-danger{% endif %}">
+                                            {{ stu.quiz_grade|floatformat:2 }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if stu.exam_grade >= 54 %}bg-success{% elif stu.exam_grade >= 42 %}bg-warning{% else %}bg-danger{% endif %}">
+                                            {{ stu.exam_grade|floatformat:2 }}%
+                                        </span>
+                                    </td>
+                                    <td class="fw-bold">
+                                        <span class="badge {% if stu.grade >= 75 %}bg-success{% elif stu.grade >= 60 %}bg-warning{% else %}bg-danger{% endif %}">
+                                            {{ stu.grade|floatformat:2 }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">No grades data available for this selection.</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
             </div>
-            <!-- Server-side DOCX Download Button -->
-            <a href="{% url 'download_rankings_docx' period_value='overall' %}?tables[]=overall" class="btn btn-outline-primary btn-sm" title="Download Official Rankings Word Document">
-              <i class="bi bi-download"></i> Download Rankings DOCX
-            </a>
-          </div>
-          <div class="card-body pt-3 pb-4">
-            <div class="table-responsive">
-              <table id="overall-student-ranking-table" class="table table-hover table-bordered align-middle rounded-4 shadow-sm overflow-hidden">
-                <thead class="text-center rounded-top-4">
-                  <tr class="fw-semibold text-maroon bg-light">
-                    <th class="bg-white rounded-start-3">Rank</th>
-                    <th class="bg-white">Name</th>
-                    <th class="bg-white">Quiz Score</th>
-                    <th class="bg-white">Exam Score</th>
-                    <th class="bg-white rounded-end-3">Total Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% if overall_rankings %}
-                  {% for stu in overall_rankings %}
-                  <tr class="ranking-row {% if stu.rank == 1 %}ranking-row-1{% endif %} text-center align-middle">
-                    <td>
-                      <span class="fw-bold fs-5">
-                        #{{ stu.rank }}{% if stu.rank == 1 %} <i class="bi bi-trophy-fill"></i>{% endif %}
-                      </span>
-                    </td>
-                    <td class="fw-semibold" style="letter-spacing:0.5px;">{{ stu.full_name }}</td>
-                    <td class="{% if stu.rank != 1 %}text-success{% endif %}">{{ stu.quiz_points|floatformat:0 }}</td>
-                    <td>{{ stu.exam_points|floatformat:0 }}</td>
-                    <td class="fw-semibold">{{ stu.total_points|floatformat:0 }}</td>
-                  </tr>
-                  {% endfor %}
-                  {% else %}
-                  <tr>
-                    <td colspan="5" class="text-center text-muted">No student ranking data available.</td>
-                  </tr>
-                  {% endif %}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
-      </div>
     </div>
-
-    <!-- ========== MODALS FOR RANKINGS ========== -->
-    {% for period_value, period_label in grading_periods %}
-    {% with stats=period_stats|get_item:period_value %}
-        <!-- Quiz Ranking Modal -->
-        <div class="modal fade theme-modal-soft" id="modalQuizRanking{{ period_value }}" tabindex="-1" aria-labelledby="modalQuizRankingLabel{{ period_value }}" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                <div class="modal-content rounded-3 border-0 overflow-hidden theme-shadow">
-                    <div class="modal-header bg-white border-0 px-4 pt-4 pb-3 d-flex justify-content-between align-items-center">
-                        <h5 class="modal-title text-primary fw-bold" id="modalQuizRankingLabel{{ period_value }}">
-                            <i class="bi bi-bar-chart me-2"></i>Quiz Rankings <span class="badge bg-primary ms-2 fs-6">{{ stats.label }}</span>
-                        </h5>
-                        <div class="d-flex align-items-center">
-                            <a href="{% url 'download_rankings_docx' period_value=period_value %}?tables[]=quizzes" class="btn btn-outline-primary btn-sm me-2"
-                                title="Download Official Quiz Rankings Document">
-                                <i class="bi bi-download"></i> Download DOCX
-                            </a>
-
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                    </div>
-                    <div class="modal-body bg-light p-4">
-                        <div class="theme-card-soft p-4 px-md-5 rounded-3 bg-white shadow-sm mb-3">
-                        {% if stats.quiz_rankings %}
-                        {% for quiz in stats.quiz_rankings %}
-                        <div class="mb-5">
-                            <div class="fw-semibold mb-2 fs-5 text-primary"><i class="bi bi-clipboard-data"></i> {{ quiz.quiz_title }}</div>
-                            <div class="table-responsive mb-2">
-                                <table class="table table-bordered align-middle rounded theme-card-soft">
-                                    <thead class=" align-middle text-center">
-                                        <tr class="align-middle text-primary fw-semibold">
-                                            <th class="rounded-start">Rank</th>
-                                            <th>Student</th>
-                                            <th>Percentage</th>
-                                            <th>Score</th>
-                                            <th class="rounded-end">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for rank in quiz.rankings %}
-                                        <tr>
-                                            <td>#{{ rank.rank }}</td>
-                                            <td class="fw-medium">{{ rank.student_name }}</td>
-                                            <td>
-                                                <span class="badge text-dark fs-6">
-                                                    {% if rank.score is not None %}
-                                                        {% if rank.score == rank.score|floatformat:0|add:"0" %}
-                                                            {{ rank.score|floatformat:0 }}%
-                                                        {% else %}
-                                                            {{ rank.score|floatformat:2 }}%
-                                                        {% endif %}
-                                                    {% else %}
-                                                        -
-                                                    {% endif %}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-light text-dark border fs-6">
-                                                    {{ rank.earned_points|floatformat:0 }} / {{ rank.total_points|floatformat:0 }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                {% if rank.passed %}
-                                                    <span class="badge bg-success">Passed</span>
-                                                {% else %}
-                                                    <span class="badge bg-danger">Failed</span>
-                                                {% endif %}
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        {% endfor %}
-                        {% else %}
-                        <div class="alert alert-info border-0 text-center rounded-3 py-4 fs-5 mb-0 theme-card-soft">
-                            <i class="bi bi-info-circle me-2"></i>
-                            No quiz rankings available for this period.
-                        </div>
-                        {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Exam Ranking Modal -->
-        <div class="modal fade theme-modal-soft" id="modalExamRanking{{ period_value }}" tabindex="-1" aria-labelledby="modalExamRankingLabel{{ period_value }}" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                <div class="modal-content rounded-3 border-0 overflow-hidden theme-shadow">
-                    <div class="modal-header bg-white border-0 px-4 pt-4 pb-3 d-flex justify-content-between align-items-center">
-                        <h5 class="modal-title text-maroon fw-bold" id="modalExamRankingLabel{{ period_value }}">
-                            <i class="bi bi-graph-up-arrow me-2"></i>Exam Rankings <span class="badge border border-1 border-maroon text-maroon bg-white ms-2 fs-6">{{ stats.label }}</span>
-                        </h5>
-                        <div class="d-flex align-items-center">
-                            <a href="{% url 'download_rankings_docx' period_value=period_value %}?tables[]=exams" class="btn btn-outline-primary btn-sm me-2"
-                                title="Download Official Exam Rankings Document">
-                                <i class="bi bi-download"></i> Download DOCX
-                            </a>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                    </div>
-                    <div class="modal-body bg-light p-4">
-                        <div class="theme-card-soft p-4 px-md-5 rounded-3 bg-white shadow-sm mb-3">
-                        {% if stats.exam_rankings %}
-                        {% for exam in stats.exam_rankings %}
-                        <div class="mb-5">
-                            <div class="fw-semibold mb-2 fs-5 text-maroon"><i class="bi bi-file-earmark-text"></i> {{ exam.exam_title }}</div>
-                            <div class="table-responsive mb-2">
-                                <table class="table table-bordered align-middle rounded theme-card-soft">
-                                    <thead class=" align-middle text-center">
-                                        <tr class="align-middle text-maroon fw-semibold">
-                                            <th class="rounded-start">Rank</th>
-                                            <th>Student</th>
-                                            <th>Percentage</th>
-                                            <th>Score</th>
-                                            <th class="rounded-end">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for rank in exam.rankings %}
-                                        <tr>
-                                            <td>#{{ rank.rank }}</td>
-                                            <td class="fw-medium">{{ rank.student_name }}</td>
-                                            <td>
-                                                <span class="badge text-maroon fs-6">
-                                                    {% if rank.score is not None %}
-                                                        {% if rank.score == rank.score|floatformat:0|add:"0" %}
-                                                            {{ rank.score|floatformat:0 }}%
-                                                        {% else %}
-                                                            {{ rank.score|floatformat:2 }}%
-                                                        {% endif %}
-                                                    {% else %}
-                                                        -
-                                                    {% endif %}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-light text-dark border fs-6">
-                                                    {{ rank.earned_points|floatformat:0 }} / {{ rank.total_points|floatformat:0 }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                {% if rank.passed %}
-                                                    <span class="badge bg-success">Passed</span>
-                                                {% else %}
-                                                    <span class="badge bg-danger">Failed</span>
-                                                {% endif %}
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        {% endfor %}
-                        {% else %}
-                        <div class="alert alert-info border-0 text-center rounded-3 py-4 fs-5 mb-0 theme-card-soft">
-                            <i class="bi bi-info-circle me-2"></i>
-                            No exam rankings available for this period.
-                        </div>
-                        {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    {% endwith %}
-    {% endfor %}
 
 </div>
 
@@ -364,6 +188,12 @@
 .ranking-row svg, .ranking-row i {
   color: #6A1829 !important;
 }
+
+/* Grade badge styles */
+.card .badge { font-size: 1.01em; }
+.badge.bg-success { background: #d1fae5; color: var(--success-color); }
+.badge.bg-warning { background: #fff3cd; color: #ae8000; }
+.badge.bg-danger  { background: #fde5e5; color: #c53b3b; }
 
 .grading-period-card {
     border-radius: 14px;
@@ -449,4 +279,349 @@
 }
 </style>
 
+
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/docx@8.2.2/build/index.umd.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- Excel Export with Beautified Styling ---
+    document.getElementById('downloadExcelBtn').addEventListener('click', function() {
+        const quizTitle = document.querySelector('h2.fw-bold').innerText.trim().replace(/[^a-zA-Z0-9]/g, '_');
+        const table = document.getElementById('resultsTable');
+        const headerCells = Array.from(table.querySelectorAll('thead th'));
+        const rows = Array.from(table.querySelectorAll('tbody tr'))
+            .filter(row => row.style.display !== 'none' && !row.querySelector('td[colspan]'));
+
+        // App color references
+        const MAROON = '6A1829';
+        const MAROON_RGB = 'rgba(106,24,41,1)';
+        const MAROON_FG = 'FFFFFF';
+        const APP_BG = 'FAFBFF'; // Question card background
+        const LIGHT_BG = 'F6F8FC'; // Lighter gray for rows
+        const BORDER = 'e4e9f2';
+        const PASS_BG = 'DFF0D8';
+        const PASS_TEXT = '388E3C';
+        const FAIL_BG = 'F8D7DA';
+        const FAIL_TEXT = 'C62828';
+        const FONT = 'Poppins,Segoe UI,Tahoma,Geneva,Verdana,sans-serif';
+
+        // Find special columns
+        let nameCol = -1, scoreCol = -1, percentCol = -1, statusCol = -1;
+        headerCells.forEach((th, i) => {
+            const head = th.innerText.trim().toLowerCase();
+            if (head === 'name') nameCol = i;
+            if (head.includes('score')) scoreCol = i;
+            if (head.includes('percent')) percentCol = i;
+            if (head.includes('status')) statusCol = i;
+        });
+
+        // Build header row with name split
+        const headers = [];
+        headerCells.forEach((th, i) => {
+            if (i === nameCol) {
+                headers.push('Last Name', 'First Name', 'Middle Name');
+            } else {
+                headers.push(th.innerText.trim());
+            }
+        });
+
+        const data = [headers];
+        function splitName(str) {
+            str = str.trim();
+            if (str.includes(',')) {
+                let [last, rest] = str.split(",", 2);
+                let restSplit = rest.trim().split(" ");
+                let first = restSplit[0] || '';
+                let middle = restSplit.slice(1).join(" ");
+                return [last.trim(), first.trim(), middle.trim()];
+            }
+            let parts = str.split(" ");
+            if(parts.length === 2)  return [parts[1].trim(), parts[0].trim(), ""];
+            if(parts.length > 2)    return [parts[parts.length-1], parts[0], parts.slice(1,parts.length-1).join(" ")];
+            return [str, "", ""];
+        }
+
+        rows.forEach(row => {
+            const cells = Array.from(row.children);
+            let rowData = [];
+            for(let i=0; i<cells.length; i++) {
+                if (i === nameCol) {
+                    let [last, first, middle] = splitName(cells[i].innerText.trim());
+                    rowData.push(last, first, middle);
+                } else if (i === scoreCol) {
+                    const raw = Math.round(Number(cells[i].getAttribute('data-raw')) || 0);
+                    const total = Math.round(Number(cells[i].getAttribute('data-total')) || 0);
+                    rowData.push(`${raw} / ${total}`);
+                } else if (i === percentCol) {
+                    let raw = cells[i].innerText.replace('%','').trim();
+                    let asPerc = parseFloat(raw);
+                    if (asPerc > 1.0) asPerc = asPerc / 100;
+                    rowData.push(asPerc);
+                } else {
+                    rowData.push(cells[i].innerText.trim());
+                }
+            }
+            data.push(rowData);
+        });
+
+        // Sheet setup
+        const ws = XLSX.utils.aoa_to_sheet(data);
+
+        // Column widths as per UI
+        ws['!cols'] = [
+            { wch: 16 }, // Section
+            { wch: 18 }, // Last Name
+            { wch: 18 }, // First Name
+            { wch: 16 }, // Middle Name
+            { wch: 14 }, // Score
+            { wch: 14 }, // Percentage
+            { wch: 14 }, // Status
+            { wch: 22 }  // Date Taken
+        ];
+
+        //--------------------------------------------
+        // --- STYLING ---
+        //--------------------------------------------
+
+        // Common fonts
+        function appFont(sz, bold, color) {
+            return {
+                name: 'Poppins',
+                sz: sz,
+                color: { rgb: color || MAROON },
+                bold: !!bold
+            };
+        }
+
+        // Header row style
+        const headerStyle = {
+            font: { name: 'Poppins', sz:12, bold: true, color:{rgb: MAROON_FG} },
+            fill: { fgColor: { rgb: MAROON } },
+            alignment: { vertical: 'center', horizontal: 'center' },
+            border: {
+                top:    { style: "thin", color:{rgb:BORDER} },
+                bottom: { style: "thin", color:{rgb:BORDER} },
+                left:   { style: "thin", color:{rgb:BORDER} },
+                right:  { style: "thin", color:{rgb:BORDER} },
+            }
+        };
+
+        // Main cell style
+        const baseStyle = {
+            font: { name: 'Poppins', sz:11 },
+            fill: { fgColor: { rgb: APP_BG } },
+            alignment: { vertical:"center", horizontal: "center", wrapText:true },
+            border: headerStyle.border
+        };
+
+        // Alternate zebra row style
+        const zebraStyle = {
+            ...baseStyle,
+            fill: { fgColor: { rgb: LIGHT_BG } }
+        };
+
+        // "Passed"/"Failed" badge style as cell backgrounds
+        const passStatusStyle = {
+            ...baseStyle,
+            fill: { fgColor: { rgb: PASS_BG } },
+            font: { ...baseStyle.font, color: {rgb: PASS_TEXT}, bold: true }
+        };
+        const failStatusStyle = {
+            ...baseStyle,
+            fill: { fgColor: { rgb: FAIL_BG } },
+            font: { ...baseStyle.font, color: {rgb: FAIL_TEXT}, bold: true }
+        };
+
+        // Percentage style (as 0.00%)
+        const percentStyle = {
+            ...baseStyle,
+            numFmt: '0.00%',
+        };
+
+        // Apply header style
+        for (let c = 0; c < headers.length; ++c) {
+            const addr = XLSX.utils.encode_cell({c, r:0});
+            if (ws[addr]) ws[addr].s = headerStyle;
+        }
+
+        // Data rows
+        for (let r = 1; r < data.length; ++r) {
+            let style = (r % 2 === 0) ? baseStyle : zebraStyle;
+            for (let c = 0; c < headers.length; ++c) {
+                const addr = XLSX.utils.encode_cell({c, r});
+                if (!ws[addr]) continue;
+                ws[addr].s = { ...style };
+                // Passed/Failed badge column
+                if (c === statusCol + 2) { // after 3 name cols.
+                    let txt = (ws[addr].v || '').toString().toLowerCase();
+                    if (txt.includes('pass')) ws[addr].s = passStatusStyle;
+                    else if (txt.includes('fail')) ws[addr].s = failStatusStyle;
+                }
+                // Percentage column
+                if (c === percentCol + 2) {
+                    ws[addr].s = percentStyle;
+                    ws[addr].z = '0.00%';
+                    ws[addr].t = 'n';
+                }
+            }
+        }
+
+        // Workbook and save
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Results");
+        XLSX.writeFile(wb, `${quizTitle}_Results.xlsx`);
+    });
+
+
+    // --- Word Export (DOCX) with Beautified Styling ---
+    document.getElementById('downloadDocBtn').addEventListener('click', function() {
+        if (!window.docx) {
+            alert('Word export failed: The docx.js library is not loaded. Please check your network or try again in a few seconds.');
+            return;
+        }
+        const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType, ShadingType, BorderStyle } = window.docx;
+
+        // App color references
+        const MAROON = '6A1829';
+        const MAROON_TEXT = '6A1829';
+        const HEADER_BG = MAROON;
+        const HEADER_TEXT = 'FFFFFF';
+        const BORDER_COLOR = 'E4E9F2';
+        const APP_BG = 'FAFBFF';
+        const LIGHT_BG = 'F6F8FC';
+        const PASS_BG = 'DFF0D8';
+        const PASS_TEXT = '388E3C';
+        const FAIL_BG = 'F8D7DA';
+        const FAIL_TEXT = 'C62828';
+        const APP_FONT = 'Poppins';
+        const TABLE_MARGIN = { top: 100, bottom: 100 };
+
+        const quizTitle = document.querySelector('h2.fw-bold').innerText.trim();
+        const table = document.getElementById('resultsTable');
+        const headerRow = table.querySelector('thead tr');
+        const visibleRows = Array.from(table.querySelectorAll('tbody tr'))
+            .filter(row => row.style.display !== 'none' && !row.querySelector('td[colspan]'));
+
+        // Header
+        function createHeaderCell(text) {
+            return new TableCell({
+                children: [new Paragraph({
+                    children: [
+                        new TextRun({
+                            text,
+                            bold: true,
+                            color: HEADER_TEXT,
+                            font: APP_FONT
+                        })
+                    ],
+                    alignment: AlignmentType.CENTER,
+                })],
+                shading: {
+                    type: ShadingType.CLEAR,
+                    fill: HEADER_BG
+                },
+                margins: { top: 140, bottom: 140, left: 140, right: 140 },
+                borders: {
+                    top:    { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 6 },
+                    bottom: { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 6 },
+                    left:   { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 6 },
+                    right:  { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 6 },
+                }
+            });
+        }
+
+        // Data
+        function createDataCell(text, rowIdx, colIdx, isBadge = false) {
+            // Zebra background
+            let bg = (rowIdx % 2 === 1) ? LIGHT_BG : APP_BG;
+            let fontColor = MAROON_TEXT, bold = false;
+            let shades = undefined;
+
+            // Status badge look
+            if (isBadge) {
+                bold = true;
+                if (text.toLowerCase().includes('pass')) {
+                    fontColor = PASS_TEXT;
+                    shades = { type: ShadingType.CLEAR, fill: PASS_BG };
+                }
+                else if (text.toLowerCase().includes('fail')) {
+                    fontColor = FAIL_TEXT;
+                    shades = { type: ShadingType.CLEAR, fill: FAIL_BG };
+                }
+            }
+            return new TableCell({
+                children: [
+                    new Paragraph({
+                        children: [new TextRun({
+                            text,
+                            bold,
+                            color: fontColor,
+                            font: APP_FONT
+                        })],
+                        alignment: AlignmentType.CENTER,
+                    })
+                ],
+                shading: shades || { type: ShadingType.CLEAR, fill: bg },
+                margins: { top: 140, bottom: 140, left: 140, right: 140 },
+                borders: {
+                    top:    { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 4 },
+                    bottom: { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 4 },
+                    left:   { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 4 },
+                    right:  { style: BorderStyle.SINGLE, color: BORDER_COLOR, size: 4 },
+                }
+            });
+        }
+
+        const headerCells = Array.from(headerRow.cells).map(cell =>
+            createHeaderCell(cell.innerText.trim())
+        );
+
+        const dataRows = visibleRows.map((row, ridx) => {
+            return new TableRow({
+                children: Array.from(row.cells).map((cell, cidx) => {
+                    // Status col matches app badge style
+                    if (cidx === 4) {
+                        return createDataCell(cell.innerText.trim(), ridx, cidx, true);
+                    }
+                    // All else: app font, maroon, zebra
+                    return createDataCell(cell.innerText.trim(), ridx, cidx, false);
+                })
+            });
+        });
+
+        const docTable = new Table({
+            rows: [new TableRow({ children: headerCells }), ...dataRows],
+            width: { size: 100, type: 'pct' },
+            margins: TABLE_MARGIN,
+            alignment: AlignmentType.CENTER,
+        });
+
+        const doc = new Document({
+            sections: [{
+                children: [
+                    new Paragraph({
+                        text: `${quizTitle} - Quiz Results`,
+                        heading: HeadingLevel.HEADING_1,
+                        alignment: AlignmentType.CENTER,
+                        spacing: { after: 100 }
+                    }),
+                    new Paragraph({ text: "" }),
+                    docTable
+                ]
+            }]
+        });
+
+        Packer.toBlob(doc).then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${quizTitle}_Results.docx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    });
+});
+</script>
 {% endblock %}

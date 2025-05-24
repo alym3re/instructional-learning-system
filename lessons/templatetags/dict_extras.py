@@ -60,3 +60,16 @@ def strip(value):
     if value is None:
         return ''
     return str(value).strip()
+
+@register.filter(name='index')
+def index(sequence, idx):
+    """
+    Returns the item at the given index from a list, tuple, or other sequence types.
+    Returns an empty string if index is out of range or type is unsupported.
+    Usage: {{ mylist|index:0 }}
+    """
+    try:
+        return sequence[idx]
+    except (IndexError, TypeError, ValueError):
+        return ''
+

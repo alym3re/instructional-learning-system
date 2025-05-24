@@ -76,112 +76,205 @@
             </div>
 
             <!-- Questions Review Card -->
-            <div class="quiz-card card grading-period-card border-0 shadow-sm mb-5">
-                <div class="card-header bg-white pb-2 pt-3 px-4 border-0">
-                    <h4 class="fw-semibold mb-0" style="font-size:1.35rem;">
+            <div class="question-list-card card shadow-sm border-0 p-0 mb-5 rounded-4">
+                <div class="card-header bg-white rounded-top-4 px-4 pb-2 pt-3">
+                    <h4 class="fw-semibold mb-0 fs-5">
                         <i class="bi bi-question-circle me-2"></i>Question Review
                     </h4>
                 </div>
-                <div class="card-body p-4">
-                    {% if show_answers %}
-                        {% for ua in user_answers %}
-                            {% with question=ua.question %}
-                                <div class="card mb-4 {% if ua.is_correct %}border-success{% else %}border-danger{% endif %}">
-                                    <div class="card-header bg-light">
-                                        <h5 class="mb-1">Question {{ forloop.counter }}</h5>
-                                        <span class="badge bg-info mb-2">{{ question.get_question_type_display }}</span>
-                                        <div class="mb-1">{{ question.text }}</div>
-                                    </div>
-                                    <div class="card-body">
-                                        <p class="mb-1"><strong>Your Answer:</strong>
-                                            {# Fill in the blanks as in exam results.html #}
-                                            {% if question.question_type == "fill_in_the_blanks" %}
-                                                {% with raw_answer=ua.text_answer|default_if_none:"" %}
-                                                    {% if raw_answer|is_python_list_string %}
-                                                        {# Handle legacy python list-string: "['1','2','3']" #}
-                                                        {% with clean1=raw_answer|cut:"["|cut:"]" %}
-                                                        {% with user_blanks=clean1|cut:"'"|split:", " %}
-                                                            {% with correct_blanks=question.answers.all|dictsort:"id" %}
-                                                                {% for blank in correct_blanks %}
-                                                                    {% with user_input=user_blanks|get_at_index:forloop.counter0|strip %}
-                                                                        {% if user_input and user_input|lower|strip == blank.text|lower|strip %}
-                                                                            <span class="badge bg-success">"{{ user_input }}"</span>
-                                                                        {% else %}
-                                                                            <span class="badge bg-danger">"{{ user_input|default:"[No Answer]" }}"</span>
-                                                                        {% endif %}
-                                                                    {% endwith %}
-                                                                {% endfor %}
-                                                            {% endwith %}
-                                                        {% endwith %}
-                                                        {% endwith %}
-                                                    {% else %}
-                                                        {# Default: new format, bar-separated #}
-                                                        {% with user_blanks=raw_answer|split:"|" %}
-                                                        {% with correct_blanks=question.answers.all|dictsort:"id" %}
-                                                            {% for blank in correct_blanks %}
-                                                                {% with user_input=user_blanks|get_at_index:forloop.counter0 %}
-                                                                    {% if user_input and user_input|lower|strip == blank.text|lower|strip %}
-                                                                        <span class="badge bg-success">"{{ user_input }}"</span>
-                                                                    {% else %}
-                                                                        <span class="badge bg-danger">"{{ user_input|default:"[No Answer]" }}"</span>
-                                                                    {% endif %}
-                                                                {% endwith %}
-                                                            {% endfor %}
-                                                        {% endwith %}
-                                                        {% endwith %}
-                                                    {% endif %}
-                                                {% endwith %}
-                                                {% if ua.partial_score %}
-                                                    <span class="ms-2 text-muted">Correct blanks: <span class="fw-bold">{{ ua.partial_score }} / {{ question.answers.all|length }}</span></span>
-                                                {% endif %}
-                                            {% elif ua.selected_answers.all|length %}
-                                                {% for choice in ua.selected_answers.all %}
-                                                    <span class="badge bg-secondary">{{ choice.text }}</span>
-                                                {% endfor %}
-                                            {% elif ua.text_answer %}
-                                                "{{ ua.text_answer }}"
-                                            {% else %}
-                                                <span class="text-muted">No answer given</span>
-                                            {% endif %}
-                                            {% if ua.is_correct %}
-                                                <span class="badge bg-success ms-2">Correct</span>
-                                            {% else %}
-                                                <span class="badge bg-danger ms-2">Incorrect</span>
-                                            {% endif %}
-                                        </p>
-                                        {% if question.explanation %}
-                                            <div class="alert alert-info mt-3 mb-0 p-2">
-                                                <strong>Explanation:</strong> {{ question.explanation }}
-                                            </div>
-                                        {% endif %}
-                                        <div class="mt-2 mb-1 small">
-                                            <strong>Points:</strong>
-                                            {% if question.question_type == "fill_in_the_blanks" %}
-                                                {% with blanks=question.answers.all|length %}
-                                                    {% with points_per_blank=question.points|floatformat:0 %}
-                                                        {{ ua.partial_score }} / {{ blanks }} blanks × {{ points_per_blank }} pts =
-                                                        {{ ua.partial_score|multiply:question.points|floatformat:0 }} /
-                                                        {{ blanks|multiply:question.points|floatformat:0 }} pts
-                                                    {% endwith %}
-                                                {% endwith %}
-                                            {% else %}
-                                                {% if ua.is_correct %}
-                                                    {{ question.points|floatformat:0 }}
-                                                {% else %}
-                                                    0
-                                                {% endif %}
-                                                / {{ question.points|floatformat:0 }} pts
-                                            {% endif %}
-                                        </div>
-                                    </div>
+                <div class="card-body px-4 py-4 d-flex flex-column gap-4">
+                {% if show_answers %}
+                    <ol class="question-list list-unstyled px-0 mb-0">
+                    {% with prev_type=None %}
+                    {% for entry in flat_user_answers %}
+                        {% if forloop.first or entry.question_type_verbose != prev_type %}
+                            {% if not forloop.first %}
+                                </ol>
+                            </li>
+                            {% endif %}
+                            <li class="mb-4 pb-4 border-bottom rounded-3">
+                                <div class="mb-3">
+                                    <span class="fs-5 fw-bold text-primary">
+                                        {{ entry.question_type_verbose }}
+                                    </span>
                                 </div>
-                            {% endwith %}
-                        {% endfor %}
-                    {% else %}
-                        <div class="alert alert-info">
-                            Correct answers are not shown for this quiz.
-                        </div>
-                    {% endif %}
+                                <ol class="list-unstyled question-type-group px-0 mb-0">
+                        {% endif %}
+                        {% with ua=entry.user_answer question=entry.question %}
+                        <li class="mb-4 pb-4 px-0 border-bottom rounded-3 question-block">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
+                                <span class="badge rounded-pill bg-info text-dark fs-7 mb-2 align-self-center" style="letter-spacing:.03em;">{{ question.get_question_type_display }}</span>
+                                <span class="ms-2 badge {% if ua.is_correct %}bg-success{% else %}bg-danger{% endif %}">
+                                    {% if ua.is_correct %}Correct{% else %}Incorrect{% endif %}
+                                </span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
+                                <span class="fw-semibold fs-6 text-primary mb-2">
+                                    Q{{ forloop.counter }}
+                                    {% if question.question_type == "fill_in_the_blanks" %}
+                                        {% with segments=question.text|split:"[blank]" %}
+                                            {% with correct_blanks=question.answers.all|dictsort:"id" user_blanks=ua.text_answer|default_if_none:""|split:"|" %}
+                                                {% for seg in segments %}
+                                                    {{ seg|safe }}
+                                                    {% if not forloop.last %}
+                                                        <button type="button"
+                                                            class="
+                                                                btn fill-blank-view-inline
+                                                                user-answer-badge
+                                                                {% if user_blanks|get_at_index:forloop.counter0|lower|strip == correct_blanks|get_at_index:forloop.counter0.text|lower|strip %}
+                                                                    user-answer-correct
+                                                                {% else %}
+                                                                    user-answer-incorrect
+                                                                {% endif %}"
+                                                            tabindex="-1"
+                                                            style="display:inline-block; min-width:64px; font-size:1em; vertical-align:middle; padding:2.5px 12px; margin:0 2px 0 2px; white-space:normal; pointer-events:none; cursor:default;">
+                                                            {{ user_blanks|get_at_index:forloop.counter0|default:"[No Answer]" }}
+                                                        </button>
+                                                        {# Show correct answer only if user got it wrong #}
+                                                        {% if user_blanks|get_at_index:forloop.counter0|lower|strip != correct_blanks|get_at_index:forloop.counter0.text|lower|strip %}
+                                                            <span class="badge correct-answer-badge ms-1">{{ correct_blanks|get_at_index:forloop.counter0.text }}</span>
+                                                        {% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% endwith %}
+                                        {% endwith %}
+                                    {% else %}
+                                        {{ question.text }}
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="ps-2 ms-2">
+                                {% if question.question_type == "multiple_choice" or question.question_type == "multiple_answer" %}
+                                    <div class="choice-btn-group">
+                                        {% for answer in question.answers.all %}
+                                            <div class="d-flex align-items-center">
+                                                <button type="button"
+                                                    class="
+                                                        btn btn-theme-maroon-outline text-center
+                                                        {% if answer in ua.selected_answers.all %}selected{% endif %}
+                                                        {% if answer.is_correct %} correct-answer-btn{% endif %}
+                                                        {% if answer in ua.selected_answers.all and answer.is_correct %}user-answer-correct{% endif %}
+                                                        {% if answer in ua.selected_answers.all and not answer.is_correct %}user-answer-incorrect{% endif %}"
+                                                    tabindex="-1"
+                                                    style="cursor:default; pointer-events:none;">
+                                                    {{ answer.text }}
+                                                </button>
+                                                {% if not answer in ua.selected_answers.all and answer.is_correct %}
+                                                    <span class="badge correct-answer-badge ms-2">Correct Answer</span>
+                                                {% endif %}
+                                                {% if answer in ua.selected_answers.all and not answer.is_correct %}
+                                                    <span class="badge user-answer-badge ms-2">Your Choice</span>
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% elif question.question_type == "true_false" %}
+                                    <div class="choice-btn-row d-flex">
+                                        {% for answer in question.answers.all %}
+                                            <div class="choice-btn-col-6">
+                                                <div class="d-flex align-items-center">
+                                                    <button type="button"
+                                                        class="
+                                                            btn btn-theme-maroon-outline text-center
+                                                            {% if answer in ua.selected_answers.all %}selected{% endif %}
+                                                            {% if answer.is_correct %} correct-answer-btn{% endif %}
+                                                            {% if answer in ua.selected_answers.all and answer.is_correct %}user-answer-correct{% endif %}
+                                                            {% if answer in ua.selected_answers.all and not answer.is_correct %}user-answer-incorrect{% endif %}"
+                                                        tabindex="-1"
+                                                        style="cursor:default; pointer-events:none; width:100%;">
+                                                        {{ answer.text }}
+                                                    </button>
+                                                    {% if not answer in ua.selected_answers.all and answer.is_correct %}
+                                                        <span class="badge correct-answer-badge ms-2">Correct Answer</span>
+                                                    {% endif %}
+                                                    {% if answer in ua.selected_answers.all and not answer.is_correct %}
+                                                        <span class="badge user-answer-badge ms-2">Your Choice</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% elif question.question_type == "fill_in_the_blanks" %}
+                                    <div class="mt-2 mb-2">
+                                        <strong>Blanks:</strong>
+                                        <ul class="list-unstyled ms-2">
+                                        {% with correct_answers=question.answers.all|dictsort:"id" user_blanks=ua.text_answer|default_if_none:""|split:"|" %}
+                                            {% for answer in correct_answers %}
+                                                <li>
+                                                  <span>
+                                                    <strong>Blank {{ forloop.counter }}:</strong>
+                                                    <span class="badge {% if user_blanks|get_at_index:forloop.counter0|lower|strip == answer.text|lower|strip %}user-answer-correct{% else %}user-answer-incorrect{% endif %}">
+                                                      Your Answer: {{ user_blanks|get_at_index:forloop.counter0|default:"[No Answer]" }}
+                                                    </span>
+                                                    {% if user_blanks|get_at_index:forloop.counter0|lower|strip != answer.text|lower|strip %}
+                                                        <span class="badge correct-answer-badge ms-2">
+                                                            Correct: {{ answer.text }}
+                                                        </span>
+                                                    {% endif %}
+                                                  </span>
+                                                </li>
+                                            {% endfor %}
+                                        {% endwith %}
+                                        </ul>
+                                    </div>
+                                {% elif question.question_type == "identification" %}
+                                    <div class="mt-2 mb-2">
+                                        <span class="badge user-answer-badge me-2"><strong>Your Answer:</strong> {{ ua.text_answer|default:"[No Answer]" }}</span>
+                                        {% with correct=question.answers.all|first %}
+                                            {% if not ua.is_correct and correct %}
+                                                <span class="badge correct-answer-badge ms-2">
+                                                    <strong>Correct:</strong> {{ correct.text }}
+                                                </span>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </div>
+                                {% elif ua.text_answer %}
+                                    <span class="badge user-answer-badge me-2">{{ ua.text_answer }}</span>
+                                    {% if not ua.is_correct %}
+                                        <span class="badge correct-answer-badge">Correct: {{ question.answers.all|join:", " }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">No answer given</span>
+                                {% endif %}
+                                {# Points, partial score, explanations #}
+                                <div class="mt-2 mb-1 small">
+                                    <strong>Points:</strong>
+                                    {% if question.question_type == "fill_in_the_blanks" %}
+                                        {% with blanks=question.answers.all|length %}
+                                            {{ ua.partial_score }} / {{ blanks }} blanks &bull;
+                                            {{ ua.partial_score|multiply:question.points|floatformat:0 }} /
+                                            {{ blanks|multiply:question.points|floatformat:0 }} pts
+                                        {% endwith %}
+                                    {% else %}
+                                        {% if ua.is_correct %}
+                                            {{ question.points|floatformat:0 }}
+                                        {% else %}
+                                            0
+                                        {% endif %}
+                                        / {{ question.points|floatformat:0 }} pts
+                                    {% endif %}
+                                </div>
+                                {% if question.explanation %}
+                                <div class="alert alert-info py-2 px-3 mb-0 mt-2" style="font-size:0.98rem;">
+                                    <strong>Explanation:</strong> {{ question.explanation }}
+                                </div>
+                                {% endif %}
+                            </div>
+                                </li>
+                                {% endwith %}
+                        {% with prev_type=entry.question_type_verbose %}{% endwith %}
+                        {% if forloop.last %}
+                                </ol>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    {% endwith %}
+                    </ol>
+                {% else %}
+                    <div class="alert alert-info">
+                        Correct answers are not shown for this quiz.
+                    </div>
+                {% endif %}
                 </div>
             </div>
 
@@ -191,15 +284,75 @@
                     <i class="bi bi-arrow-bar-left"></i>
                     <span>Back to Grading Periods</span>
                 </a>
-                <a href="{% url 'quizzes:quiz_history' %}" class="btn btn-outline-secondary btn-md d-flex align-items-center gap-2 shadow-sm m-2">
-                    <i class="bi bi-clock-history"></i>
-                    <span>View Your Quiz History</span>
-                </a>
             </div>
         </div>
     </div>
 </div>
 <style>
+/* Copy/paste or ensure these styles exist from view.html for consistent look */
+.question-list-card {
+    background: #fafbff;
+}
+.question-list .question-block:last-child {
+    border-bottom: 0 !important;
+}
+.question-list .question-block {
+    background: #f6f8fc;
+    box-shadow: 0 1px 4px rgba(86,113,156,.04);
+}
+.question-list .fw-semibold.fs-6 {
+    font-size: 1.13rem !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+}
+.btn-theme-maroon-outline {
+    font-size: 1.13rem;
+    font-weight: 600;
+    border-radius: 10px;
+    background: #fff;
+    color: #6A1829;
+    border: 2px solid #6A1829;
+    transition: background 0.15s, color 0.15s;
+    padding: 0.75rem 1.1rem;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(128,0,0,0.10);
+    margin-bottom: 0.3rem;
+}
+.btn-theme-maroon-outline.selected,
+.btn-theme-maroon-outline.correct-answer-btn {
+    background: #6A1829;
+    color: #fff;
+}
+.choice-btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-bottom: 0.6rem;
+}
+.choice-btn-row {
+    display: flex;
+    gap: 1rem;
+    margin: 0 0 1rem 0;
+}
+.choice-btn-col-6 {
+    flex: 0 0 48%;
+    max-width: 48%;
+}
+@media (max-width: 575px) {
+    .choice-btn-row { flex-direction: column; gap: 0.75rem; }
+    .choice-btn-col-6 { max-width: 100%; flex: 1 1 100%; }
+}
+.fill-blank-view-inline {
+    display: inline-block !important;
+    margin-bottom: 0 !important;
+    vertical-align: middle !important;
+    min-width: 64px;
+    padding: 2.5px 12px;
+    white-space: normal;
+    line-height: 1.3;
+}
 .quiz-summary-card {
     border-radius: 18px;
     box-shadow: 0 4px 30px rgba(86, 113, 156,.12), 0 2px 10px rgba(86, 113, 156,.06);
@@ -317,6 +470,31 @@
     background: #f4f4f4;
     color: #262626 !important;
     border-color: var(--primary-color, #6A1829);
+}
+
+.user-answer-badge {
+    background: #d9ecff !important;
+    color: #184782 !important;
+    font-weight: 600;
+    border: 1.5px solid #94bfe7;
+    font-size: 1.01em;
+}
+.correct-answer-badge {
+    background: #e6f5e6 !important;
+    color: #266326 !important;
+    font-weight: 600;
+    border: 1.5px solid #97d997;
+    font-size: 1.01em;
+}
+.user-answer-correct {
+    background: #d9ffe0 !important;
+    color: #307333 !important;
+    border: 2px solid #64c987 !important;
+}
+.user-answer-incorrect {
+    background: #ffe0e0 !important;
+    color: #b23939 !important;
+    border: 2px solid #e59393 !important;
 }
 
 @media (max-width: 767px) {

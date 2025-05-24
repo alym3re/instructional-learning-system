@@ -1,4 +1,6 @@
 {% extends 'base.html' %}
+{% load dict_extras %}
+{% load percentage_extras %}
 {% block title %}{{ grading_period_display }} Quizzes{% endblock %}
 
 {% block content %}
@@ -14,10 +16,6 @@
                     <span style="font-size:1.17rem;">Add Quiz</span>
                 </a>
             {% else %}
-                <a href="{% url 'quizzes:quiz_history' %}?grading_period={{ grading_period }}" class="btn btn-primary btn-lg d-flex align-items-center">
-                    <i class="bi bi-clock-history me-2" style="font-size:1.5rem;"></i>
-                    <span style="font-size:1.17rem;">View History</span>
-                </a>
             {% endif %}
         </div>
     </div>
@@ -25,13 +23,17 @@
     <div class="row">
         {% for quiz in page_obj %}
             {% if not quiz.is_archived %}
-            <div class="col-12 col-md-6 col-lg-4 mb-4">
-                <div class="quiz-card card grading-period-card position-relative d-flex flex-column h-100 p-0">
+                {% if user.is_staff or quiz.is_published %}
+                <div class="col-12 col-md-6 col-lg-4 mb-4">
+                    <div class="quiz-card card grading-period-card position-relative d-flex flex-column h-100 p-0">
                     {% if quiz.locked and not user.is_staff %}
                     <div class="locked-overlay d-flex flex-column align-items-center justify-content-center">
                         <i class="bi bi-lock-fill mb-3 text-light" style="font-size:2.8rem;"></i>
                         <span class="locked-text text-light">Locked</span>
                     </div>
+                    {% endif %}
+                    {% if not quiz.is_published %}
+                    <span class="badge bg-warning text-dark position-absolute top-0 end-0 m-3 shadow" title="Not published">Not Published</span>
                     {% endif %}
                     <div class="card-body d-flex flex-column justify-content-between align-items-center p-4">
 
@@ -47,9 +49,15 @@
                                 <a href="{% url 'quizzes:view_quiz' quiz.id %}" class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;">
                                     <i class="bi bi-eye me-1"></i> View Quiz
                                 </a>
-                                <a href="{% url 'quizzes:add_quiz_questions' quiz.id %}" class="btn btn-outline-primary btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;">
-                                    <i class="bi bi-pencil-square me-1"></i> Edit Questions
-                                </a>
+                                <form method="post"
+                                      action="{% if quiz.is_published %}{% url 'quizzes:unpublish_quiz' quiz.id %}{% else %}{% url 'quizzes:publish_quiz' quiz.id %}{% endif %}"
+                                      class="d-inline" onsubmit="return confirmPublishUnpublish('{{ quiz.is_published }}');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn {% if quiz.is_published %}btn-warning{% else %}btn-success{% endif %} btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;">
+                                        <i class="bi {% if quiz.is_published %}bi-cloud-slash{% else %}bi-cloud-upload{% endif %} me-1"></i> 
+                                        {% if quiz.is_published %}Unpublish{% else %}Publish{% endif %}
+                                    </button>
+                                </form>
                                 <form method="post"
                                       action="{% url 'quizzes:archive_quiz' quiz.id %}?next={% url 'quizzes:quiz_list_by_period' quiz.grading_period %}"
                                       class="d-inline">
@@ -58,17 +66,24 @@
                                         <i class="bi bi-archive me-1"></i> Archive Quiz
                                     </button>
                                 </form>
-                                <form method="post"
-                                      action="{% if quiz.locked %}{% url 'quizzes:unlock_quiz' quiz.id %}{% else %}{% url 'quizzes:lock_quiz' quiz.id %}{% endif %}"
-                                      class="d-inline">
-                                    {% csrf_token %}
-                                </form>
                             </div>
                         {% else %}
                             {% if completed_quiz_ids and quiz.id in completed_quiz_ids %}
-                                <button class="btn btn-success btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;" disabled>
-                                    <i class="bi bi-check-circle me-1"></i> Completed
-                                </button>
+                                <div class="d-flex flex-column gap-2">
+                                    <button class="btn btn-success btn-lg w-100 d-flex align-items-center justify-content-center" style="font-size:1.05rem;" disabled>
+                                        <i class="bi bi-check-circle me-1"></i> Completed
+                                    </button>
+                                    {% with attempt=latest_attempts|get_item:quiz.id %}
+                                        {% if attempt %}
+                                            <a href="{% url 'quizzes:quiz_results' attempt.id %}"
+                                               class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center"
+                                               style="font-size:1.05rem;">
+                                                <i class="bi bi-clipboard-data me-1"></i>
+                                                View Result
+                                            </a>
+                                        {% endif %}
+                                    {% endwith %}
+                                </div>
                             {% else %}
                                 <a href="{% url 'quizzes:take_quiz' quiz.id %}"
                                    class="btn btn-primary btn-lg w-100 d-flex align-items-center justify-content-center"
@@ -81,6 +96,7 @@
                     </div>
                 </div>
             </div>
+                {% endif %}
             {% endif %}
         {% empty %}
         <div class="col-12">
@@ -306,5 +322,12 @@
           return new bootstrap.Tooltip(tooltipTriggerEl)
         })
     });
+    
+    function confirmPublishUnpublish(isPublished) {
+        if(isPublished === 'True' || isPublished === true)
+            return confirm('Unpublishing will allow editing, but students who already took the quiz may be affected. Continue?');
+        else
+            return confirm('Publishing will lock this quiz from further editing by admins and make it visible to students. Continue?');
+    }
 </script>
 {% endblock %}

@@ -2,6 +2,7 @@ import random
 from django import forms
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
+from accounts.models import User
 from django.contrib import messages
 from django.utils import timezone
 from django.db import transaction
@@ -11,12 +12,14 @@ from django.views.decorators.http import require_GET
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db import models
 from django.views.decorators.http import require_POST, require_GET
+from django.urls import reverse
 from itertools import groupby
 from operator import attrgetter
 from .models import Quiz, Question, Answer, QuizAttempt, UserAnswer, GRADING_PERIOD_CHOICES, QUESTION_TYPE_CHOICES, LockedQuizPeriod
 from .forms import QuizForm, QuestionForm, AnswerForm, AnswerFormSet, FillInTheBlanksForm
+from accounts.models import User
+section_choices = User.SECTION_CHOICES
 
-# Define the preferred order for question types
 QUESTION_TYPE_ORDER = [
     'multiple_choice',
     'true_false',
@@ -93,7 +96,15 @@ def grading_period_list(request):
     locked_periods = {lk.period: lk.locked for lk in LockedQuizPeriod.objects.all()}
 
     for period_value, period_label in periods:
-        quizzes = Quiz.objects.filter(grading_period=period_value, is_archived=False)
+        # Only count published, non-archived quizzes for regular users
+        # For staff, show all non-archived quizzes
+        if user and user.is_staff:
+            quizzes = Quiz.objects.filter(grading_period=period_value, is_archived=False)
+            quizzes_for_display = list(quizzes.order_by('-created_at'))
+        else:
+            quizzes = Quiz.objects.filter(grading_period=period_value, is_published=True, is_archived=False)
+            quizzes_for_display = list(quizzes.order_by('-created_at'))
+            
         quiz_count = quizzes.count()
         view_count = quizzes.aggregate(total_views=models.Sum("view_count"))["total_views"] or 0
 
@@ -109,15 +120,13 @@ def grading_period_list(request):
         
         locked = locked_periods.get(period_value, False)
 
-        quizzes_for_period = list(quizzes.order_by('-created_at'))
-
         period_stats[period_value] = {
             "label": period_label,
             "quiz_count": quiz_count,
             "view_count": view_count,
             "progress_percent": progress_percent,
             "completed_count": user_completed,
-            "quizzes": quizzes_for_period,
+            "quizzes": quizzes_for_display,
             "locked": locked,
         }
 
@@ -135,7 +144,11 @@ def quiz_list_by_period(request, grading_period):
         messages.error(request, "Invalid grading period.")
         return redirect('quizzes:grading_period_list')
 
-    quizzes_qs = Quiz.objects.filter(grading_period=grading_period).order_by('-created_at')
+    # Only show published quizzes to regular users
+    if request.user.is_staff:
+        quizzes_qs = Quiz.objects.filter(grading_period=grading_period).order_by('-created_at')
+    else:
+        quizzes_qs = Quiz.objects.filter(grading_period=grading_period, is_published=True, is_archived=False).order_by('-created_at')
     period_display = dict(GRADING_PERIOD_CHOICES)[grading_period]
     paginator = Paginator(quizzes_qs, 12)
 
@@ -143,12 +156,27 @@ def quiz_list_by_period(request, grading_period):
     page_obj = paginator.get_page(page_number)
     
     completed_quiz_ids = set()
+    latest_attempts = {}  # Store the latest attempt for each quiz
     if request.user.is_authenticated:
         completed_quiz_ids = set(
             QuizAttempt.objects.filter(
                 user=request.user, quiz__grading_period=grading_period, completed=True
             ).values_list('quiz_id', flat=True)
         )
+
+        # Get the latest attempt for each quiz in this grading period
+        user_attempts = (
+            QuizAttempt.objects
+            .filter(
+                user=request.user,
+                quiz__grading_period=grading_period,
+                completed=True
+            )
+            .order_by('-end_time')  # Most recent attempts first
+        )
+        for attempt in user_attempts:
+            if attempt.quiz_id not in latest_attempts:
+                latest_attempts[attempt.quiz_id] = attempt
     
     context = {
         'grading_period': grading_period,
@@ -156,6 +184,7 @@ def quiz_list_by_period(request, grading_period):
         'page_obj': page_obj,
         'user': request.user,
         'completed_quiz_ids': completed_quiz_ids,  # let template display "Completed"
+        'latest_attempts': latest_attempts,  # Add latest attempts to context
     }
     return render(request, "quizzes/list.html", context)
 
@@ -167,6 +196,12 @@ def quiz_list(request):
 @login_required
 def view_quiz(request, quiz_id):
     quiz = get_object_or_404(Quiz, id=quiz_id, is_archived=False)
+    
+    # Check if quiz is published - only staff can view unpublished quizzes
+    if not quiz.is_published and not request.user.is_staff:
+        messages.error(request, "This quiz is not currently published.")
+        return redirect('quizzes:quiz_list_by_period', grading_period=quiz.grading_period)
+        
     if hasattr(quiz, 'increment_view_count'):
         quiz.increment_view_count()
     # Get questions in the preferred order
@@ -187,6 +222,17 @@ def view_quiz(request, quiz_id):
         .order_by('-score', 'end_time', 'start_time')
     )
 
+    # Get all user attempts for the results modal
+    user_attempts = (
+        QuizAttempt.objects
+        .filter(quiz=quiz, completed=True)
+        .select_related('user')
+        .order_by('-score', 'end_time', 'start_time')
+    )
+
+    # Get SECTION_CHOICES from User model
+    section_choices = User.SECTION_CHOICES
+
     # Pagination for leaderboard (10 per page)
     page = request.GET.get('leaderboard_page', 1)
     leaderboard_paginator = Paginator(leaderboard_attempts, 10)
@@ -206,6 +252,9 @@ def view_quiz(request, quiz_id):
         'leaderboard_page_obj': leaderboard_page_obj,
         'completed': completed,  # For template logic to block attempt or show DONE
         'user_attempt': attempt,
+        # Below: for the results modal
+        'user_attempts': user_attempts,
+        'section_choices': section_choices,
     }
     
     if quiz.locked and not request.user.is_staff:
@@ -228,8 +277,9 @@ def create_quiz(request):
         if form.is_valid():
             quiz = form.save(commit=False)
             quiz.created_by = request.user
+            quiz.is_published = False  # Default to unpublished
             quiz.save()
-            messages.success(request, 'Quiz created successfully!')
+            messages.success(request, 'Quiz created successfully! Add questions before publishing.')
             return redirect('quizzes:add_quiz_questions', quiz_id=quiz.id)
     else:
         form = QuizForm()
@@ -263,6 +313,11 @@ def add_quiz_questions(request, quiz_id):
     if not request.user.is_staff or quiz.created_by != request.user:
         messages.error(request, "You don't have permission to edit this quiz.")
         return redirect('quizzes:quiz_list_by_period', grading_period=quiz.grading_period)
+        
+    # Prevent editing published quizzes
+    if quiz.is_published:
+        messages.error(request, "You cannot edit questions for a published quiz. Please unpublish it first.")
+        return redirect('quizzes:view_quiz', quiz_id=quiz.id)
 
     error_message = None
     default_question_type = 'multiple_choice'
@@ -452,6 +507,12 @@ def add_quiz_questions(request, quiz_id):
 @login_required
 def take_quiz(request, quiz_id):
     quiz = get_object_or_404(Quiz, id=quiz_id, is_archived=False)
+    
+    # Check if quiz is published
+    if not quiz.is_published and not request.user.is_staff:
+        messages.error(request, "This quiz is not currently published.")
+        return redirect('quizzes:quiz_list_by_period', grading_period=quiz.grading_period)
+        
     user_attempt = QuizAttempt.objects.filter(user=request.user, quiz=quiz).first()
     if user_attempt and user_attempt.completed:
         messages.info(request, "You have already completed this quiz. You cannot take it again.")
@@ -499,9 +560,8 @@ def take_quiz(request, quiz_id):
                 elif qtype == 'fill_in_the_blanks':
                     blanks = request.POST.getlist(f'question_{question.id}_blank[]')
                     user_answer_obj.text_answer = '|'.join([b.strip() for b in blanks])
-                    # Don't use selected_answers for FIB
 
-                # FIB: partial credit scheme
+                # Scoring logic remains the same
                 if qtype == 'fill_in_the_blanks':
                     correct_blanks = question.answers.filter(is_correct=True).values_list('text', flat=True)
                     user_blanks = [b.strip().lower() for b in blanks]
@@ -521,6 +581,7 @@ def take_quiz(request, quiz_id):
                     if user_answer_obj.is_correct:
                         total_score += question.points
                 user_answer_obj.save()
+            
             user_attempt.completed = True
             user_attempt.end_time = timezone.now()
             user_attempt.raw_points = total_score
@@ -531,19 +592,57 @@ def take_quiz(request, quiz_id):
             messages.success(request, 'Quiz submitted successfully!')
             return redirect('quizzes:quiz_results', attempt_id=user_attempt.id)
 
-    # Get questions in the preferred order
-    questions = ordered_questions(quiz.questions.all().prefetch_related('answers'))
-    if quiz.shuffle_questions:
-        questions = list(questions)
-        random.shuffle(questions)
-
-    questions_by_type = get_questions_grouped_by_type(questions)
+    # Get questions grouped by type and shuffled within each type
+    questions_by_type = []
+    
+    # 1. Multiple Choice (shuffled)
+    mc_questions = list(quiz.questions.filter(question_type='multiple_choice'))
+    random.shuffle(mc_questions)
+    if mc_questions:
+        questions_by_type.append({
+            'type': 'multiple_choice',
+            'type_verbose': 'Multiple Choice',
+            'questions': mc_questions
+        })
+    
+    # 2. True/False (shuffled)
+    tf_questions = list(quiz.questions.filter(question_type='true_false'))
+    random.shuffle(tf_questions)
+    if tf_questions:
+        questions_by_type.append({
+            'type': 'true_false',
+            'type_verbose': 'True/False',
+            'questions': tf_questions
+        })
+    
+    # 3. Fill in the Blanks (shuffled)
+    fib_questions = list(quiz.questions.filter(question_type='fill_in_the_blanks'))
+    random.shuffle(fib_questions)
+    if fib_questions:
+        questions_by_type.append({
+            'type': 'fill_in_the_blanks',
+            'type_verbose': 'Fill in the Blanks',
+            'questions': fib_questions
+        })
+    
+    # 4. Identification (shuffled)
+    id_questions = list(quiz.questions.filter(question_type='identification'))
+    random.shuffle(id_questions)
+    if id_questions:
+        questions_by_type.append({
+            'type': 'identification',
+            'type_verbose': 'Identification',
+            'questions': id_questions
+        })
+    
+    # Calculate total question count for numbering
+    total_questions = sum(len(group['questions']) for group in questions_by_type)
     
     return render(request, 'quizzes/take.html', {
         'quiz': quiz,
-        'attempt': user_attempt,
-        'questions': questions,
         'questions_by_type': questions_by_type,
+        'total_questions': total_questions,
+        'attempt': user_attempt,
         'time_limit': quiz.time_limit * 60 if quiz.time_limit > 0 else None
     })
 
@@ -555,8 +654,49 @@ def quiz_results(request, attempt_id):
         return redirect('quizzes:grading_period_list')
 
     # Select related so we can access user_answer.question easily in template
-    user_answers = attempt.user_answers.select_related('question').all()
+    user_answers = list(attempt.user_answers.select_related('question').all())
     show_answers = attempt.quiz.show_correct_answers or attempt.passed or request.user.is_staff
+
+    # Group and order user_answers for results.html like questions in view.html
+    user_answers_by_type = {qtype: [] for qtype in QUESTION_TYPE_ORDER}
+    extra_types = {}
+
+    for ua in user_answers:
+        qtype = getattr(ua.question, 'question_type', None)
+        if qtype in user_answers_by_type:
+            user_answers_by_type[qtype].append(ua)
+        else:
+            extra_types.setdefault(qtype, []).append(ua)
+
+    # Make ordered list of question types with their answers
+    sorted_user_answers_by_type = []
+    for qtype in QUESTION_TYPE_ORDER:
+        answers = user_answers_by_type[qtype]
+        if answers:
+            sorted_user_answers_by_type.append({
+                'question_type': qtype,
+                'type_verbose': answers[0].question.get_question_type_display() if answers else qtype.replace("_", " ").title(),
+                'answers': answers
+            })
+    # Add any leftover question types at the end
+    for qtype, answers in extra_types.items():
+        if qtype and answers:
+            sorted_user_answers_by_type.append({
+                'question_type': qtype,
+                'type_verbose': answers[0].question.get_question_type_display() if answers else qtype.replace("_", " ").title(),
+                'answers': answers
+            })
+            
+    # Create a flat list for global ordering and numbering in template
+    flat_user_answers = []
+    for group in sorted_user_answers_by_type:
+        for ua in group['answers']:
+            flat_user_answers.append({
+                'question_type_verbose': group['type_verbose'],
+                'question_type': group['question_type'],
+                'user_answer': ua,
+                'question': ua.question,
+            })
 
     # Build a submitted_blanks dict {question.id: [list of blank dicts]} for fill-in-the-blanks questions
     submitted_blanks = {}
@@ -578,11 +718,13 @@ def quiz_results(request, attempt_id):
 
     return render(request, 'quizzes/results.html', {
         'attempt': attempt,
-        'user_answers': user_answers,
+        'user_answers': user_answers,  # Keep for backward compatibility
+        'user_answers_by_type': sorted_user_answers_by_type,  # New grouped answers
         'show_answers': show_answers,
         'raw_points': attempt.raw_points,
         'total_points': attempt.total_points,
         'submitted_blanks': submitted_blanks,  # For template to display each blank separately
+        'flat_user_answers': flat_user_answers,  # For global question numbering
     })
 
 
@@ -686,6 +828,11 @@ def edit_quiz(request, quiz_id):
         messages.error(request, "You don't have permission to edit this quiz.")
         return redirect('quizzes:quiz_list_by_period', grading_period=quiz.grading_period)
     
+    # Prevent editing published quizzes
+    if quiz.is_published:
+        messages.error(request, "You cannot edit a published quiz. Please unpublish it first if you need to make changes.")
+        return redirect('quizzes:view_quiz', quiz_id=quiz.id)
+    
     if request.method == 'POST':
         form = QuizForm(request.POST, request.FILES, instance=quiz)
         if form.is_valid():
@@ -733,6 +880,30 @@ def get_question(request, quiz_id, question_id):
         'blank_answers': blank_answers,
     }
     return JsonResponse(question_data)
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def publish_quiz(request, quiz_id):
+    """Publish a quiz to make it available to students."""
+    quiz = get_object_or_404(Quiz, id=quiz_id)
+    if not quiz.is_published:
+        quiz.is_published = True
+        quiz.save(update_fields=['is_published'])
+        messages.success(request, "Quiz published. Students can now see and take this quiz.")
+    return redirect(request.POST.get('next') or reverse('quizzes:view_quiz', args=[quiz.id]))
+
+@require_POST
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def unpublish_quiz(request, quiz_id):
+    """Unpublish a quiz to hide it from students."""
+    quiz = get_object_or_404(Quiz, id=quiz_id)
+    if quiz.is_published:
+        quiz.is_published = False
+        quiz.save(update_fields=['is_published'])
+        messages.warning(request, "Quiz unpublished. Students can no longer see or take this quiz. Previously submitted attempts are kept.")
+    return redirect(request.POST.get('next') or reverse('quizzes:view_quiz', args=[quiz.id]))
 
 @require_POST
 @login_required

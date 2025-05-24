@@ -57,6 +57,7 @@ class Quiz(models.Model):
     )
     thumbnail = models.ImageField(upload_to=quiz_thumbnail_path, blank=True, null=True)
     view_count = models.PositiveIntegerField(default=0)
+    is_published = models.BooleanField(default=False, help_text="Mark this quiz as published (visible to students and locked for editing).")
 
     class Meta:
         verbose_name_plural = "quizzes"
@@ -77,6 +78,12 @@ class Quiz(models.Model):
                 slug = f"{original_slug}-{num}"
                 num += 1
             self.slug = slug
+            
+        # If quiz is being published, ensure it has at least one question
+        if self.is_published and not hasattr(self, '_skip_validation'):
+            if self.questions.count() == 0:
+                raise ValueError("Cannot publish a quiz with no questions")
+                
         super().save(*args, **kwargs)
 
     def increment_view_count(self):
@@ -85,6 +92,16 @@ class Quiz(models.Model):
 
     def question_count(self):
         return self.questions.count()
+        
+    def can_be_edited(self, user):
+        """Check if a user can edit this quiz"""
+        return user.is_staff and not self.is_published
+        
+    def can_be_viewed_by(self, user):
+        """Check if a user can view this quiz"""
+        if user.is_staff:
+            return True
+        return self.is_published and not self.is_archived
 
 class Question(models.Model):
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='questions')
