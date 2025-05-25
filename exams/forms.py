@@ -5,8 +5,7 @@ class ExamForm(forms.ModelForm):
     class Meta:
         model = Exam
         fields = [
-            'title', 'description', 'grading_period', 'time_limit', 'passing_score',
-            'shuffle_questions', 'show_correct_answers'
+            'title', 'description', 'grading_period', 'time_limit', 'passing_score', 'show_correct_answers'
         ]
         widgets = {
             'title': forms.TextInput(attrs={'class': 'form-control'}),
@@ -14,11 +13,18 @@ class ExamForm(forms.ModelForm):
             'grading_period': forms.Select(attrs={'class': 'form-select'}),
             'time_limit': forms.NumberInput(attrs={'min': 0, 'class': 'form-control'}),
             'passing_score': forms.NumberInput(attrs={'min': 0, 'max': 100, 'class': 'form-control'}),
-            'shuffle_questions': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'show_correct_answers': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
 class ExamQuestionForm(forms.ModelForm):
+    # This will only be used for identification type
+    correct_answer = forms.CharField(
+        label="Correct Answer",
+        max_length=500,
+        required=False,  # Requiredness is validated in the view depending on type
+        widget=forms.TextInput(attrs={'class': 'form-control input-identification'})
+    )
+    
     class Meta:
         model = ExamQuestion
         fields = ['text', 'question_type', 'explanation', 'points']
@@ -28,6 +34,20 @@ class ExamQuestionForm(forms.ModelForm):
             'explanation': forms.Textarea(attrs={'rows': 2, 'class': 'form-control'}),
             'points': forms.NumberInput(attrs={'min': 1, 'class': 'form-control'}),
         }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = kwargs.get('instance')
+        # For identification: If instance exists, set correct_answer field
+        if instance and instance.question_type == 'identification':
+            answer = instance.answers.filter(is_correct=True).first()
+            if answer:
+                self.fields['correct_answer'].initial = answer.text
+        # If editing fill-in-the-blanks, store answers as a list (for display in JS)
+        if instance and instance.question_type == 'fill_in_the_blanks':
+            self.blank_answers_list = list(instance.answers.filter(is_correct=True).order_by('id').values_list('text', flat=True))
+        else:
+            self.blank_answers_list = []
 
 class ExamAnswerForm(forms.ModelForm):
     class Meta:
@@ -66,7 +86,10 @@ class ExamShortAnswerForm(ExamAnswerForm):
         self.fields['is_correct'].initial = True
 
 
-class ExamFillInTheBlanksForm(forms.ModelForm):
+class ExamFillInTheBlanksForm(ExamQuestionForm):
+    # For FIB, "answers_list" will be posted as blank_answers[]
+    answers_list = forms.CharField(required=False, widget=forms.HiddenInput())
+
     class Meta:
         model = ExamQuestion
         fields = ['text', 'question_type', 'explanation', 'points']
@@ -85,19 +108,35 @@ class ExamFillInTheBlanksForm(forms.ModelForm):
             }),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.question_type == 'fill_in_the_blanks':
+            # Pre-populate answers_list with existing blank answers
+            answers = list(self.instance.answers.filter(is_correct=True).order_by('id').values_list('text', flat=True))
+            self.initial['answers_list'] = ','.join(answers)
+
     def clean(self):
         cleaned = super().clean()
         text = cleaned.get('text', '')
         blanks_count = text.count('[blank]')
 
-        # blank_answers[] will come in via POST (must match blanks)
-        answers = self.data.getlist('blank_answers[]')
+        # Get answers from either POST data or initial data (for editing)
+        answers = self.data.getlist('blank_answers[]', [])
+        if not answers and 'answers_list' in cleaned:
+            # Handle comma-separated string if that's how it was submitted
+            answers_value = cleaned['answers_list']
+            if isinstance(answers_value, str) and ',' in answers_value:
+                answers = answers_value.split(',')
+            elif isinstance(answers_value, list):
+                answers = answers_value
+            else:
+                answers = [answers_value] if answers_value else []
+        
         if blanks_count != len(answers):
             raise forms.ValidationError("Number of blanks ([blank]) must match the number of answers provided.")
+        
         cleaned['answers_list'] = answers
-        # Points field represents points per blank
         return cleaned
-
 from django.forms import inlineformset_factory
 
 ExamAnswerFormSet = inlineformset_factory(

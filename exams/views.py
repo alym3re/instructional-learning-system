@@ -1,4 +1,5 @@
 import random
+import json
 from django import forms
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -16,6 +17,7 @@ from .forms import ExamForm, ExamQuestionForm, ExamAnswerForm, ExamAnswerFormSet
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.contrib.admin.views.decorators import staff_member_required
+
 
 
 # Utility function to get the *real* points of an exam (per-blank for fill_in_the_blanks)
@@ -191,6 +193,35 @@ def view_exam(request, exam_id):
         attempt = ExamAttempt.objects.filter(user=request.user, exam=exam).first()
         completed = attempt.completed if attempt else False
     
+    # Pass all user attempts for staff to display full leaderboard
+    user_attempts = None
+    if request.user.is_staff:
+        user_attempts = ExamAttempt.objects.filter(exam=exam, completed=True).select_related('user').order_by('-score', '-end_time')
+    else:
+        # Only their own attempt for students (could be empty query)
+        user_attempts = ExamAttempt.objects.filter(exam=exam, user=request.user)
+    
+    # Try to build section choices from user_attempts (populate with distinct values)
+    user_sections = set()
+    section_labels = {}
+    for ua in user_attempts:
+        # For safety: handle users with/without section value
+        section_val = getattr(ua.user, "section", None)
+        if section_val is not None and section_val != "":
+            user_sections.add(section_val)
+            # If User model has a get_section_display(), use it; else use the raw value
+            label = (
+                ua.user.get_section_display()
+                if hasattr(ua.user, "get_section_display") else section_val
+            )
+            section_labels[section_val] = label
+
+    # Create a sorted list of (section, label)
+    section_choices = sorted(
+        [(sec, section_labels[sec]) for sec in user_sections],
+        key=lambda x: x[1]
+    )
+    
     context = {
         'exam': exam,
         'questions': questions,
@@ -199,6 +230,8 @@ def view_exam(request, exam_id):
         'overall_score': overall_score,
         'passing_points': passing_points,
         'passing_percent': exam.passing_score,
+        'user_attempts': user_attempts,  # For results modal/leaderboard
+        'section_choices': section_choices,  # For filtering attempts by section
     }
     if exam.locked and not request.user.is_staff:
         messages.error(request, "This exam is locked.")
@@ -216,6 +249,9 @@ def get_answer_formset_for_question_type(question_type):
     else:
         return ExamAnswerFormSet
 
+
+
+
 @login_required
 def add_exam_questions(request, exam_id):
     exam = get_object_or_404(Exam, id=exam_id)
@@ -223,25 +259,49 @@ def add_exam_questions(request, exam_id):
         messages.error(request, "You don't have permission to edit this exam.")
         return redirect('exams:exam_by_period', grading_period=exam.grading_period)
 
+    questions = exam.get_ordered_questions()
     default_question_type = 'multiple_choice'
     error_message = None
 
+    # Handle edit mode: GET param preferred for idempotency
+    edit_question_id = request.GET.get("edit_question_id") or request.POST.get("edit_question_id") or ""
+    edit_mode = bool(edit_question_id)
+    instance = None
+
+    # Cancel edit mode
+    if request.method == "POST" and request.POST.get("cancel_edit") == "1":
+        return redirect('exams:add_exam_questions', exam_id=exam.id)
+
+    # On GET - load question instance, prepopulate forms/fields
+    if edit_mode:
+        try:
+            instance = exam.questions.get(id=edit_question_id)
+            default_question_type = instance.question_type
+        except Exception:
+            instance = None
+            edit_mode = False
+
+    # Get the right form and answer formset for question type
+    qtype = request.POST.get('question_type') or request.GET.get('question_type') or default_question_type
+
     if request.method == 'POST':
-        qtype = request.POST.get('question_type', default_question_type)
+        # Use right form for type and editing instance if set
         if qtype == 'fill_in_the_blanks':
-            question_form = ExamFillInTheBlanksForm(request.POST)
+            question_form = ExamFillInTheBlanksForm(request.POST, instance=instance)
             answer_formset = None
         elif qtype == 'identification':
-            question_form = ExamQuestionForm(request.POST)
-            answer_formset = None  # skip formset; we handle manually
+            question_form = ExamQuestionForm(request.POST, instance=instance)
+            answer_formset = None
+            # Manually add correct_answer to form data if it exists
+            if 'correct_answer' in request.POST:
+                question_form.data = question_form.data.copy()
+                question_form.data['correct_answer'] = request.POST['correct_answer']
         else:
-            question_form = ExamQuestionForm(request.POST)
+            question_form = ExamQuestionForm(request.POST, instance=instance)
             AnswerFormSet = get_answer_formset_for_question_type(qtype)
             answer_formset = AnswerFormSet(request.POST, prefix='answers') if AnswerFormSet else None
 
-        # Validation & saving logic
         valid = question_form.is_valid() and (answer_formset is None or answer_formset.is_valid())
-        # For identification, ensure correct_answer exists
         if qtype == 'identification' and not request.POST.get('correct_answer', '').strip():
             valid = False
             error_message = "Correct answer is required for identification question."
@@ -250,14 +310,16 @@ def add_exam_questions(request, exam_id):
             with transaction.atomic():
                 question = question_form.save(commit=False)
                 question.exam = exam
+                question.question_type = qtype
                 question.save()
 
-                # Force question_type (in case select is fiddled with)
-                question.question_type = qtype
+                # Remove old answers if editing
+                if edit_mode and instance:
+                    ExamAnswer.objects.filter(question=question).delete()
                 
                 if qtype == 'fill_in_the_blanks':
                     # Save each blank as an ExamAnswer
-                    answers_list = question_form.cleaned_data['answers_list']
+                    answers_list = question_form.cleaned_data.get('answers_list', [])
                     for blank_answer in answers_list:
                         ExamAnswer.objects.create(
                             question=question,
@@ -266,17 +328,16 @@ def add_exam_questions(request, exam_id):
                         )
                 elif qtype == 'identification':
                     answer_text = request.POST.get('correct_answer', '').strip()
-                    ExamAnswer.objects.create(
-                        question=question,
-                        text=answer_text,
-                        is_correct=True
-                    )
+                    if answer_text:  # Only create if answer exists
+                        ExamAnswer.objects.create(
+                            question=question,
+                            text=answer_text,
+                            is_correct=True
+                        )
                 elif qtype == 'true_false':
                     # Ensure exactly two ExamAnswer options: True and False
                     if answer_formset is not None:
                         answers = answer_formset.save(commit=False)
-                        # Delete any existing answers first
-                        ExamAnswer.objects.filter(question=question).delete()
                         # Create True and False options
                         for idx, answer in enumerate(answers):
                             answer.question = question
@@ -290,43 +351,117 @@ def add_exam_questions(request, exam_id):
                             answer.question = question
                             answer.save()
                         answer_formset.save_m2m()
-                        
-                messages.success(request, 'Question added successfully!')
+                
+                messages.success(request, 'Question {} successfully!'.format('updated' if edit_mode else 'added'))
                 return redirect('exams:add_exam_questions', exam_id=exam.id)
         else:
             error_message = "Invalid question or answer form"
-    else:
-        qtype = request.GET.get('question_type', default_question_type)
-        if qtype == 'fill_in_the_blanks':
-            question_form = ExamFillInTheBlanksForm(initial={'question_type': 'fill_in_the_blanks'})
-            answer_formset = None
-        elif qtype == 'identification':
-            question_form = ExamQuestionForm(initial={'question_type': 'identification'})
-            answer_formset = None
-        else:
-            question_form = ExamQuestionForm(initial={'question_type': qtype})
-            AnswerFormSet = get_answer_formset_for_question_type(qtype)
-            
-            if qtype == 'true_false' and AnswerFormSet:
-                # Pre-fill with "True" and "False"
+    
+    else:  # GET request
+        # GET: set up forms with instance OR blank with defaults
+        if edit_mode and instance:
+            qtype = instance.question_type
+            if qtype == 'fill_in_the_blanks':
+                question_form = ExamFillInTheBlanksForm(instance=instance)
+                # The form will handle populating answers_list via its __init__
+                answer_formset = None
+            elif qtype == 'identification':
+                question_form = ExamQuestionForm(instance=instance)
+                # Get the correct answer and add it to initial data
+                correct_answer = instance.answers.filter(is_correct=True).first()
+                if correct_answer:
+                    question_form.initial['correct_answer'] = correct_answer.text
+                answer_formset = None
+            else:
+                question_form = ExamQuestionForm(instance=instance)
+                AnswerFormSet = get_answer_formset_for_question_type(qtype)
+                answers = list(ExamAnswer.objects.filter(question=instance).order_by('id'))
+                # Ensure initial reflects db and shows correct checked state
                 answer_formset = AnswerFormSet(
+                    queryset=ExamAnswer.objects.filter(question=instance),
                     prefix='answers',
                     initial=[
-                        {'text': 'True', 'is_correct': False},
-                        {'text': 'False', 'is_correct': False}
+                        {'text': ans.text, 'is_correct': ans.is_correct} for ans in answers
                     ]
-                )
+                ) if AnswerFormSet else None
+        else:
+            # Not editing: blank/default forms
+            qtype = request.GET.get('question_type', default_question_type)
+            if qtype == 'fill_in_the_blanks':
+                question_form = ExamFillInTheBlanksForm(initial={'question_type': 'fill_in_the_blanks'})
+                answer_formset = None
+            elif qtype == 'identification':
+                question_form = ExamQuestionForm(initial={'question_type': 'identification'})
+                answer_formset = None
             else:
-                answer_formset = AnswerFormSet(prefix='answers') if AnswerFormSet else None
+                question_form = ExamQuestionForm(initial={'question_type': qtype})
+                AnswerFormSet = get_answer_formset_for_question_type(qtype)
+                if qtype == 'true_false' and AnswerFormSet:
+                    # Pre-fill with "True" and "False"
+                    answer_formset = AnswerFormSet(
+                        prefix='answers',
+                        initial=[
+                            {'text': 'True', 'is_correct': False},
+                            {'text': 'False', 'is_correct': False}
+                        ]
+                    )
+                else:
+                    answer_formset = AnswerFormSet(prefix='answers') if AnswerFormSet else None
 
-    questions = exam.get_ordered_questions()
-    return render(request, 'exams/add_questions.html', {
+    context = {
         'exam': exam,
         'question_form': question_form,
         'answer_formset': answer_formset,
         'questions': questions,
         'error': error_message,
-    })
+        'edit_mode': edit_mode,
+        'edit_question_id': edit_question_id if edit_mode else '',
+        'question_type': qtype,
+    }
+    
+    # Process blank answers for fill_in_the_blanks questions
+    blank_answers = []
+    if qtype == 'fill_in_the_blanks':
+        if edit_mode and instance:
+            # Get all blank answers in order for existing question
+            blank_answers = list(instance.answers.filter(is_correct=True).order_by('id').values_list('text', flat=True))
+        elif hasattr(question_form, 'cleaned_data'):
+            # After POST
+            blank_answers = question_form.cleaned_data.get('answers_list', [])
+        elif hasattr(question_form, 'initial'):
+            # After GET with initial data
+            answers_str = question_form.initial.get('answers_list', '')
+            if isinstance(answers_str, str):
+                blank_answers = [a.strip() for a in answers_str.split(',') if a.strip()]
+    
+    # Get identification answer if needed
+    ident_answer = ''
+    if qtype == 'identification' and edit_mode and instance:
+        ident_answer_obj = instance.answers.filter(is_correct=True).first()
+        ident_answer = ident_answer_obj.text if ident_answer_obj else ''
+    
+    # Add additional context for edit mode to properly populate form fields
+    context = {
+        'exam': exam,
+        'question_form': question_form,
+        'answer_formset': answer_formset,
+        'questions': questions,
+        'error': error_message,
+        'edit_mode': edit_mode,
+        'edit_question_id': edit_question_id if edit_mode else '',
+        'question_type': qtype,
+        'blank_answers': blank_answers,
+        'blank_answers_json': json.dumps(blank_answers),  # Always valid JS array
+        'ident_answer': ident_answer,
+    }
+    
+    # Provide question_to_edit for template logic
+    if edit_mode and instance:
+        context['question_to_edit'] = instance
+    
+    return render(request, 'exams/add_questions.html', context)
+
+
 
 
 @login_required
@@ -429,10 +564,12 @@ def exam_results(request, attempt_id):
     attempt = get_object_or_404(ExamAttempt, id=attempt_id, user=request.user)
     exam = attempt.exam
     user_answers = attempt.user_answers.select_related('question').prefetch_related('selected_answers')
+    show_answers = exam.show_correct_answers  # Add this line
     return render(request, 'exams/results.html', {
         'exam': exam,
         'attempt': attempt,
-        'user_answers': user_answers
+        'user_answers': user_answers,
+        'show_answers': show_answers  # Pass to template
     })
 
 @login_required
@@ -527,3 +664,26 @@ def toggle_period_lock(request, grading_period):
     else:
         messages.error(request, "No exam for this grading period.")
     return HttpResponseRedirect(reverse('exams:grading_period_exam_list'))
+
+@staff_member_required
+@login_required
+def publish_exam(request, exam_id):
+    exam = get_object_or_404(Exam, id=exam_id)
+    if request.method == 'POST' and not exam.is_published:
+        try:
+            exam.is_published = True
+            exam.save(update_fields=['is_published'])
+            messages.success(request, "Exam published. Students can now see and take this exam.")
+        except ValueError as e:
+            messages.error(request, str(e))
+    return redirect('exams:grading_period_exam_list')
+
+@staff_member_required
+def unpublish_exam(request, exam_id):
+    """Unpublish an exam to hide it from students."""
+    exam = get_object_or_404(Exam, id=exam_id)
+    if request.method == 'POST' and exam.is_published:
+        exam.is_published = False
+        exam.save(update_fields=['is_published'])
+        messages.warning(request, "Exam unpublished. Students can no longer see or take this exam. Previously submitted attempts are kept.")
+    return redirect('exams:view_exam', exam_id=exam.id)

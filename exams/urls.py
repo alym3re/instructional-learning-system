@@ -20,7 +20,8 @@ urlpatterns = [
     path('<int:exam_id>/lock/', views.lock_exam, name='lock_exam'),
     path('<int:exam_id>/unlock/', views.unlock_exam, name='unlock_exam'),
     path('period/<str:grading_period>/toggle-lock/', views.toggle_period_lock, name='toggle_period_lock'),
-
+    path('<int:exam_id>/publish/', views.publish_exam, name='publish_exam'),
+    path('<int:exam_id>/unpublish/', views.unpublish_exam, name='unpublish_exam'),
 
 
 ]

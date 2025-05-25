@@ -30,6 +30,7 @@ class Exam(models.Model):
     locked = models.BooleanField(default=True, help_text="Lock this exam for non-admin users")
     shuffle_questions = models.BooleanField(default=False)
     show_correct_answers = models.BooleanField(help_text="Show correct answers after submission", default=True)
+    is_published = models.BooleanField(default=False, help_text="Mark this exam as published (visible to students and locked for editing).")
     grading_period = models.CharField(max_length=10, choices=EXAM_GRADING_PERIOD_CHOICES, default='prelim')
     lesson = models.ForeignKey('lessons.Lesson', on_delete=models.SET_NULL, related_name='exams', null=True, blank=True)
     view_count = models.PositiveIntegerField(default=0)
@@ -51,6 +52,12 @@ class Exam(models.Model):
         # Enforce one exam per grading period
         if not self.pk and Exam.objects.filter(grading_period=self.grading_period).exists():
             raise ValueError('There can only be one exam per grading period.')
+        
+        # Prevent publishing with no questions
+        if self.is_published and not hasattr(self, '_skip_validation'):
+            if self.questions.count() == 0:
+                raise ValueError("Cannot publish an exam with no questions")
+                
         if not self.slug:
             original_slug = slugify(self.title)
             slug = original_slug

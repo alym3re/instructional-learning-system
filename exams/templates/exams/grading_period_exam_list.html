@@ -13,50 +13,79 @@
         {% for period, stats in period_stats.items %}
         <div class="col-12 col-sm-6 col-md-6 col-lg-6">
             <div class="grading-period-card card position-relative d-flex flex-column h-100">
-                {% if stats.exam and stats.exam.locked and not is_admin %}
-                <div class="locked-overlay d-flex flex-column align-items-center justify-content-center">
-                    <i class="bi bi-lock-fill mb-3 text-light" style="font-size:2.8rem;"></i>
-                    <span class="locked-text text-light">Locked</span>
-                </div>
+                {% if is_admin %}
+                    {% if not stats.exam.is_published %}
+                    <span class="badge bg-warning text-dark position-absolute top-0 end-0 m-3 shadow" title="Not published">Not Published</span>
+                    {% endif %}
                 {% endif %}
+                {# No locked overlay - using publish/unpublish instead #}
                 <div class="card-body d-flex flex-column justify-content-between align-items-center p-5">
                     <h3 class="card-title fw-semibold" style="font-size:2.1rem;"> {{ stats.label }}</h3>
                     <p class="mb-2 theme-muted" style="font-size:1.35rem;">
-                        {% if stats.exam %}
-                            {% if stats.completed %}
-                                <i class="bi bi-journal-check me-1"></i>
-                                <span class="fw-medium">Exam Completed</span>
-                            {% else%}
-                                <i class="bi bi-journal-check me-1"></i>
-                                <span class="fw-medium">Exam is Ready</span>
+                        {% if not is_admin %}
+                            {% if stats.exam %}
+                                {% if stats.exam.is_published and stats.completed %}
+                                    <i class="bi bi-journal-check me-1"></i>
+                                    <span class="fw-medium">Exam Completed</span>
+                                    
+                                {% elif not stats.exam.is_published and stats.completed %}
+                                    <i class="bi bi-journal-x me-1"></i>
+                                    <span class="fw-medium">Exam Closed</span>
+                                
+                                {% elif not stats.exam.is_published and not stats.completed %}
+                                    <i class="bi bi-journal-x me-1"></i>
+                                    <span class="fw-medium">No Exam Available</span>
+                                    
+                                {% else%}
+                                    <i class="bi bi-journal-check me-1"></i>
+                                    <span class="fw-medium">Exam is Ready</span>
+                                {% endif %}
+                            {% else %}
+                                <i class="bi bi-journal-x me-1"></i>
+                                <span class="fw-medium">No Exam Available</span>
                             {% endif %}
-                        {% else %}
-                            <i class="bi bi-journal-x me-1"></i>
-                            <span class="fw-medium">No Exam Available</span>
-                        {% endif %}
+                      {% endif %}
+
                     </p>
 
                 </div>
                 <div class="card-footer bg-white border-0 pt-0 pb-5 px-5">
                     {% if is_admin %}
-                        <form method="post" action="{% url 'exams:toggle_period_lock' period %}" class="w-100 mt-1">
-                            {% csrf_token %}
-                            {% if stats.exam %}
-                            <button type="submit"
-                              class="btn btn-lg w-100 shadow-none mb-2 {% if stats.exam and stats.exam.locked %}btn-theme-primary{% else %}btn-theme-maroon-outline{% endif %}">
-                                <i class="bi {% if stats.exam and stats.exam.locked %}bi-unlock-fill{% else %}bi-lock-fill{% endif %} me-1"></i>
-                                <span style="font-size:1.18rem;">{% if stats.exam and stats.exam.locked %}Unlock Period{% else %}Lock Period{% endif %}</span>
-                            </button>
-                            {% endif %}
-                        </form>
-                        {% if not stats.exam %}
-                          <a href="{% url 'exams:create_exam' %}?grading_period={{ period }}"
-                             class="btn btn-lg w-100 shadow-none btn-theme-primary mb-2 mt-3 mb-2">
-                            <i class="bi bi-plus-circle me-1"></i>
-                            <span style="font-size:1.18rem;">Create Exam</span>
-                          </a>
+                        {# Publish/Unpublish Button (Admin Only) #}
+                        {% if stats.exam %}
+                            <form method="post" 
+                                  action="{% url 'exams:publish_exam' stats.exam.id %}" 
+                                  class="w-100 mt-1" 
+                                  style="display:{% if not stats.exam.is_published %}block{% else %}none{% endif %};"
+                                  onsubmit="return confirmPublishUnpublish(false, {{ stats.questions_count|default:0 }});">
+                                {% csrf_token %}
+                                <button type="submit"
+                                    class="btn btn-lg w-100 shadow-none mb-2 btn-theme-maroon-outline"
+                                    data-questions="{{ stats.questions_count|default:0 }}">
+                                    <i class="bi bi-upload me-1"></i>
+                                    <span style="font-size:1.18rem;">Publish Exam</span>
+                                </button>
+                            </form>
+                            <form method="post" 
+                                  action="{% url 'exams:unpublish_exam' stats.exam.id %}" 
+                                  class="w-100 mt-1" 
+                                  style="display:{% if stats.exam.is_published %}block{% else %}none{% endif %};"
+                                  onsubmit="return confirmPublishUnpublish(true, {{ stats.questions_count|default:0 }});">
+                                {% csrf_token %}
+                                <button type="submit"
+                                    class="btn btn-lg w-100 shadow-none mb-2 btn-theme-primary">
+                                    <i class="bi bi-eye-slash me-1"></i>
+                                    <span style="font-size:1.18rem;">Unpublish Exam</span>
+                                </button>
+                            </form>
                         {% endif %}
-                    {% else %}
+                        {% if not stats.exam %}
+                            <a href="{% url 'exams:create_exam' %}?grading_period={{ period }}"
+                                class="btn btn-lg w-100 shadow-none btn-theme-primary mb-2 mt-3 mb-2">
+                                <i class="bi bi-plus-circle me-1"></i>
+                                <span style="font-size:1.18rem;">Create Exam</span>
+                            </a>
+                        {% endif %}
                     {% endif %}
 
                     {% if is_admin %}
@@ -71,11 +100,8 @@
                             </button>
                         {% endif %}
                     {% else %}
-                        {% if stats.exam and stats.exam.locked %}
-                            <button class="btn btn-theme-muted btn-lg w-100" style="font-size:1.15rem;" disabled>
-                                <i class="bi bi-lock-fill me-1"></i> Locked
-                            </button>
-                        {% elif stats.exam %}
+                        {# For students (non-admin), show status or take links #}
+                        {% if stats.exam and stats.exam.is_published %}
                             {% if stats.completed %}
                                 <button class="btn btn-success btn-lg w-100 mb-2" style="font-size:1.15rem;" disabled>
                                     <i class="bi bi-check-circle me-1"></i> Completed
@@ -104,6 +130,7 @@
                                     Take Exam
                                 </button>
                             {% endif %}
+                        {% elif stats.exam and not stats.exam.is_published %}
                         {% else %}
                             <button class="btn btn-theme-muted btn-lg w-100" style="font-size:1.15rem;" disabled>
                                 
@@ -165,6 +192,18 @@
 
 {% block js %}
 <script>
+function confirmPublishUnpublish(isPublished, questionsCount) {
+    if (typeof questionsCount !== "undefined" && questionsCount === 0 && !isPublished) {
+        alert('Cannot publish an exam with no questions!');
+        return false;
+    }
+    if (isPublished === true || isPublished === 'True') {
+        return confirm('Unpublishing will allow editing, but students who already took the exam may be affected. Continue?');
+    } else {
+        return confirm('Publishing will lock this exam from further editing by admins and make it visible to students. Continue?');
+    }
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     // Bootstrap modal instance (ensure always hidden on close)
     const modalEl = document.getElementById('examInfoModal');
@@ -309,27 +348,6 @@ body {
 }
 .period-status i {
     font-size: 1.15em;
-}
-.locked-overlay {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgb(118,39,48); /* match --light-color as overlay bg */
-    z-index: 10;
-    border-radius: 14px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-.locked-overlay .theme-danger,
-.locked-text {
-    color: var(--danger-color);
-}
-.locked-text {
-    font-weight: 600;
-    font-size: 2rem;
-    text-shadow: none;
-    letter-spacing: 1px;
 }
 .card-title {
     font-size: 2.1rem;

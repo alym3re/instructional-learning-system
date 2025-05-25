@@ -19,7 +19,13 @@
         border-radius: 10px;
         box-shadow: 0 2px 8px rgb(128 0 0 / 0.05);
     }
-    /* Button theme styles */
+    .question-type-header {
+        color: var(--maroon);
+        border-bottom: 2px solid var(--maroon);
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+        margin-top: 2rem;
+    }
     .btn-theme-maroon-outline {
         font-size: 1.13rem;
         font-weight: 600;
@@ -48,7 +54,6 @@
         flex-direction: column;
         gap: 0.75rem;
     }
-    /* True/False as 2 columns */
     .choice-btn-row {
         display: flex;
         gap: 1rem;
@@ -124,13 +129,11 @@
 </style>
 <div class="container quiz-container">
     <h1 class="mb-4">{{ exam.title }}</h1>
-    
     {% if exam.description %}
         <div class="alert alert-info mb-4">
             {{ exam.description }}
         </div>
     {% endif %}
-    
     <div class="quiz-info mb-4">
         <div class="card">
             <div class="card-body">
@@ -154,84 +157,178 @@
             </div>
         </div>
     </div>
-
     <form method="post" id="exam-form" autocomplete="off">
         {% csrf_token %}
-        {% for question in questions %}
-        <div class="card mb-3 question-card">
-            <div class="card-header">
-                <h5>Question {{ forloop.counter }}</h5>
-                <span class="badge bg-info">
-                    {{ question.get_question_type_display|default:question.question_type|capfirst }}
-                </span>
-                <small class="text-muted">
-                    {% if question.is_fill_in_the_blanks %}
-                        {{ question.answers.all|length }} blank{{ question.answers.all|length|pluralize }} × {{ question.points }} = {{ question.answers.all|length|multiply:question.points }} pt{{ question.answers.all|length|multiply:question.points|pluralize }}
-                    {% else %}
-                        {{ question.points }} point{{ question.points|pluralize }}
-                    {% endif %}
-                </small>
-            </div>
-            <div class="card-body">
-                <p class="card-text"
-                   {% if question.is_fill_in_the_blanks %}
-                        data-fill-blanks="1"
-                        data-qid="{{ question.id }}"
-                   {% endif %}
-                >
-                    {{ question.text|safe }}
-                </p>
-                <div class="answers">
+        <div id="question-list">
+            {% comment %} 
+            Group questions into types and display them in a fixed order:
+            MC > TOF > FIB > IDF
+            {% endcomment %}
+            <div class="question-type-section" data-question-type="mc">
+                <h3 class="question-type-header">Multiple Choice</h3>
+                <div class="type-question-holder" id="mc-holder">
+                {% for question in questions %}
                     {% if question.is_multiple_choice %}
-                        <div class="choice-btn-group">
-                            {% for answer in question.answers.all %}
-                                <button type="button"
-                                   class="btn btn-theme-maroon-outline"
-                                   data-qid="{{ question.id }}"
-                                   data-ansid="{{ answer.id }}"
-                                   aria-pressed="false"
-                                   tabindex="0">
-                                    {{ answer.text|title }}
-                                </button>
-                                <input type="radio" name="question_{{ question.id }}"
-                                       value="{{ answer.id }}" id="answer_{{ question.id }}_{{ answer.id }}"
-                                       style="display:none" required>
-                            {% endfor %}
-                        </div>
-                    {% elif question.is_true_false %}
-                        <div class="choice-btn-row">
-                            {% for answer in question.answers.all %}
-                                <div class="choice-btn-col-6">
-                                    <button type="button"
-                                       class="btn btn-theme-maroon-outline"
-                                       data-qid="{{ question.id }}"
-                                       data-ansid="{{ answer.id }}"
-                                       aria-pressed="false"
-                                       tabindex="0">
-                                        {{ answer.text|title }}
-                                    </button>
-                                    <input type="radio" name="question_{{ question.id }}"
-                                        value="{{ answer.id }}" id="answer_{{ question.id }}_{{ answer.id }}"
-                                        style="display:none" required>
+                        <div class="card mb-3 question-card" data-question-card data-qtype="mc">
+                            <div class="card-header">
+                                <h5 class="question-number">Question</h5>
+                                <span class="badge bg-info">
+                                    {{ question.get_question_type_display|default:question.question_type|capfirst }}
+                                </span>
+                                <small class="text-muted">
+                                    {{ question.points }} point{{ question.points|pluralize }}
+                                </small>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text"
+                                   {% if question.is_fill_in_the_blanks %}
+                                        data-fill-blanks="1"
+                                        data-qid="{{ question.id }}"
+                                   {% endif %}
+                                >
+                                    {{ question.text|safe }}
+                                </p>
+                                <div class="answers">
+                                    <div class="choice-btn-group">
+                                        {% for answer in question.answers.all %}
+                                            <button type="button"
+                                               class="btn btn-theme-maroon-outline"
+                                               data-qid="{{ question.id }}"
+                                               data-ansid="{{ answer.id }}"
+                                               aria-pressed="false"
+                                               tabindex="0">
+                                                {{ answer.text|title }}
+                                            </button>
+                                            <input type="radio" name="question_{{ question.id }}"
+                                                   value="{{ answer.id }}" id="answer_{{ question.id }}_{{ answer.id }}"
+                                                   style="display:none" required>
+                                        {% endfor %}
+                                    </div>
                                 </div>
-                            {% endfor %}
+                            </div>
                         </div>
-                    {% elif question.is_identification %}
-                        <label class="identification-label" for="ident_{{ question.id }}">
-                            Type your answer below:
-                        </label>
-                        <input type="text"
-                               class="input-identification"
-                               id="ident_{{ question.id }}"
-                               name="question_{{ question.id }}_text"
-                               placeholder="Your answer here..."
-                               required autocomplete="off">
-                    {# Fill-in-the-blanks questions use [blank] markers in the question text #}
                     {% endif %}
+                {% endfor %}
+                </div>
+            </div>
+            <div class="question-type-section" data-question-type="tof">
+                <h3 class="question-type-header">True or False</h3>
+                <div class="type-question-holder" id="tof-holder">
+                {% for question in questions %}
+                    {% if question.is_true_false %}
+                        <div class="card mb-3 question-card" data-question-card data-qtype="tof">
+                            <div class="card-header">
+                                <h5 class="question-number">Question</h5>
+                                <span class="badge bg-info">
+                                    {{ question.get_question_type_display|default:question.question_type|capfirst }}
+                                </span>
+                                <small class="text-muted">
+                                    {{ question.points }} point{{ question.points|pluralize }}
+                                </small>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text"
+                                   {% if question.is_fill_in_the_blanks %}
+                                        data-fill-blanks="1"
+                                        data-qid="{{ question.id }}"
+                                   {% endif %}
+                                >
+                                    {{ question.text|safe }}
+                                </p>
+                                <div class="answers">
+                                    <div class="choice-btn-row">
+                                        {% for answer in question.answers.all %}
+                                            <div class="choice-btn-col-6">
+                                                <button type="button"
+                                                   class="btn btn-theme-maroon-outline"
+                                                   data-qid="{{ question.id }}"
+                                                   data-ansid="{{ answer.id }}"
+                                                   aria-pressed="false"
+                                                   tabindex="0">
+                                                    {{ answer.text|title }}
+                                                </button>
+                                                <input type="radio" name="question_{{ question.id }}"
+                                                    value="{{ answer.id }}" id="answer_{{ question.id }}_{{ answer.id }}"
+                                                    style="display:none" required>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                </div>
+            </div>
+            <div class="question-type-section" data-question-type="fib">
+                <h3 class="question-type-header">Fill in the Blanks</h3>
+                <div class="type-question-holder" id="fib-holder">
+                {% for question in questions %}
+                    {% if question.is_fill_in_the_blanks %}
+                        <div class="card mb-3 question-card" data-question-card data-qtype="fib">
+                            <div class="card-header">
+                                <h5 class="question-number">Question</h5>
+                                <span class="badge bg-info">
+                                    {{ question.get_question_type_display|default:question.question_type|capfirst }}
+                                </span>
+                                <small class="text-muted">
+                                    {{ question.answers.all|length }} blank{{ question.answers.all|length|pluralize }} × {{ question.points }} = {{ question.answers.all|length|multiply:question.points }} pt{{ question.answers.all|length|multiply:question.points|pluralize }}
+                                </small>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text"
+                                    data-fill-blanks="1"
+                                    data-qid="{{ question.id }}"
+                                >{{ question.text|safe }}</p>
+                                <div class="answers"></div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                </div>
+            </div>
+            <div class="question-type-section" data-question-type="idf">
+                <h3 class="question-type-header">Identification</h3>
+                <div class="type-question-holder" id="idf-holder">
+                {% for question in questions %}
+                    {% if question.is_identification %}
+                        <div class="card mb-3 question-card" data-question-card data-qtype="idf">
+                            <div class="card-header">
+                                <h5 class="question-number">Question</h5>
+                                <span class="badge bg-info">
+                                    {{ question.get_question_type_display|default:question.question_type|capfirst }}
+                                </span>
+                                <small class="text-muted">
+                                    {{ question.points }} point{{ question.points|pluralize }}
+                                </small>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text"
+                                   {% if question.is_fill_in_the_blanks %}
+                                        data-fill-blanks="1"
+                                        data-qid="{{ question.id }}"
+                                   {% endif %}
+                                >
+                                    {{ question.text|safe }}
+                                </p>
+                                <div class="answers">
+                                    <label class="identification-label" for="ident_{{ question.id }}">
+                                        Type your answer below:
+                                    </label>
+                                    <input type="text"
+                                           class="input-identification"
+                                           id="ident_{{ question.id }}"
+                                           name="question_{{ question.id }}_text"
+                                           placeholder="Your answer here..."
+                                           required autocomplete="off">
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
                 </div>
             </div>
         </div>
-        {% endfor %}
         <div class="d-flex justify-content-between mb-3">
             <button type="submit" class="btn btn-primary btn-lg">Submit Exam</button>
             <a href="{% url 'exams:view_exam' exam.id %}" class="btn btn-secondary">Cancel</a>
@@ -243,21 +340,18 @@
 {% block js %}
 <script>
 {% if exam.time_limit > 0 %}
-    let duration = {{ exam.time_limit }} * 60; // Convert to seconds
+    let duration = {{ exam.time_limit }} * 60;
     const timerElement = document.getElementById('time-remaining');
-
     function updateTimer() {
         const minutes = Math.floor(duration / 60);
         const seconds = duration % 60;
         timerElement.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-
         if (duration <= 0) {
             document.getElementById('exam-form').submit();
         } else {
             duration--;
             setTimeout(updateTimer, 1000);
         }
-
         if (duration < 300) {
             timerElement.classList.add('text-danger');
             timerElement.classList.add('fw-bold');
@@ -266,25 +360,45 @@
     updateTimer();
 {% endif %}
 
-// Choice button interactivity for multiple choice / true-false
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
-    // Replace [blank] in fill-in-the-blanks questions with input fields
-    document.querySelectorAll('[data-fill-blanks]').forEach(function (el) {
+    // For each type holder, shuffle the question cards in that section
+    const typeOrder = ['mc', 'tof', 'fib', 'idf'];
+    let overallIndex = 1;
+    typeOrder.forEach(type => {
+        const holder = document.getElementById(type + '-holder');
+        if (!holder) return;
+        // collect and shuffle cards
+        let cards = Array.from(holder.querySelectorAll('[data-question-card]'));
+        shuffle(cards);
+        cards.forEach(card => holder.appendChild(card));
+        // Renumber: gather all .question-number in display order, set number as overallIndex++
+        cards.forEach(card => {
+            let numEl = card.querySelector('.question-number');
+            if (numEl) {
+                numEl.textContent = 'Question ' + overallIndex++;
+            }
+        });
+    });
+
+    // Fill-in-the-blanks UI for FIB type
+    document.querySelectorAll('.type-question-holder [data-fill-blanks]').forEach(function (el) {
         let qid = el.getAttribute('data-qid');
         let html = el.innerHTML;
-        
-        // First, count the blanks to create numbered inputs
         let blankCount = (html.match(/\[blank\]/gi) || []).length;
         let blankIndex = 0;
-        
-        // Replace each [blank] with a numbered input field
         html = html.replace(/\[blank\]/gi, function() {
             blankIndex++;
             return "<input type='text' class='input-blank' name='question_" + qid + "_blank[]' " +
                    "placeholder='Blank " + blankIndex + "' autocomplete='off' required " +
                    "style='display: inline-block; width: 200px; margin: 3px;' />";
         });
-        
         el.innerHTML = html;
     });
 
@@ -292,20 +406,16 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.btn-theme-maroon-outline').forEach(function(btn) {
         btn.addEventListener('click', function() {
             let group = btn.closest('.choice-btn-group, .choice-btn-row');
-            // Deselect all in group
             group.querySelectorAll('.btn-theme-maroon-outline').forEach(other => {
                 other.classList.remove('selected');
                 other.setAttribute('aria-pressed', 'false');
             });
             btn.classList.add('selected');
             btn.setAttribute('aria-pressed', 'true');
-            // Activate hidden radio input
             const ansId = btn.getAttribute('data-ansid');
             const qid = btn.getAttribute('data-qid');
             const radio = document.getElementById(`answer_${qid}_${ansId}`);
-            if (radio) {
-                radio.checked = true;
-            }
+            if (radio) radio.checked = true;
         });
     });
 });

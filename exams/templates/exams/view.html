@@ -1,167 +1,387 @@
+
 {% extends 'base.html' %}
+{% load percentage_extras %}
+{% load exams_extras %}
+{% load dict_extras %}
 {% block title %}{{ exam.title }}{% endblock %}
 
 {% block content %}
-<div class="container quiz-view-container pt-5">
+<div class="container quiz-view-container py-5">
     <!-- Breadcrumb Navigation -->
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb fs-5 bg-white rounded p-3 theme-shadow" style="--bs-breadcrumb-divider: '›';">
             <li class="breadcrumb-item">
                 <a href="{% url 'exams:grading_period_exam_list' %}" class="breadcrumb-link app-brand">Grading Periods</a>
             </li>
-            <li class="breadcrumb-item active app-brand" aria-current="page">
-                {{ exam.get_grading_period_display }}
-            </li>
+            <li class="breadcrumb-item active app-brand" aria-current="page">{{ exam.get_grading_period_display }}</li>
+            <li class="breadcrumb-item active app-brand" aria-current="page">{{ exam.title }}</li>
         </ol>
     </nav>
 
-    <div class="row">
-        <!-- Main Content -->
-        <div class="col-lg-8">
+    <div class="row justify-content-center">
+        <!-- Main Content: Responsive, always centered -->
+        <div class="col-12 col-lg-9">
             <!-- Exam Details Card -->
-            <div class="quiz-card card grading-period-card border-0 shadow-sm mb-5">
-                <div class="card-header bg-white pb-3 pt-4 px-4 border-0">
-                    <h2 class="mb-0 fw-bold" style="font-size:2.1rem; line-height:1.1;">{{ exam.title }}</h2>
-
-                    <div class="d-flex align-items-center flex-wrap gap-3 mb-3">
-
-                        <span class="badge bg-light theme-muted border" style="font-size:1.01rem;">
-                            <i class="bi bi-eye me-1"></i> {{ exam.view_count }} Views
+            <div class="card px-0 pt-0 pb-4 mb-4 shadow-sm rounded-4 quiz-main-card">
+                <div class="card-header bg-white px-4 py-4 rounded-top-4">
+                    <div class="d-flex flex-column flex-md-row flex-wrap gap-2 align-items-start align-items-md-center justify-content-between mb-3">
+                        <h2 class="fw-bold mb-md-0 mb-2" style="font-size:2.0rem;">{{ exam.title }}</h2>
+                        <!-- Uniform Actions Toolbar -->
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            {% if request.user.is_staff %}
+                                <form method="post" action="{% if exam.is_published %}{% url 'exams:unpublish_exam' exam.id %}{% else %}{% url 'exams:publish_exam' exam.id %}{% endif %}" class="d-inline" onsubmit="return confirmPublishUnpublishView('{{ exam.is_published }}');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-theme-primary d-flex align-items-center">
+                                        <i class="bi {% if exam.is_published %}bi-cloud-slash{% else %}bi-cloud-upload{% endif %} me-1"></i> 
+                                        {% if exam.is_published %}Unpublish{% else %}Publish{% endif %}
+                                    </button>
+                                </form>
+                                {% if not exam.is_published %}
+                                    <a href="{% url 'exams:add_exam_questions' exam.id %}" class="btn btn-sm btn-theme-primary d-flex align-items-center">
+                                        <i class="bi bi-pencil-square me-1"></i> Edit Questions
+                                    </a>
+                                    <a href="{% url 'exams:edit_exam' exam.id %}" class="btn btn-sm btn-theme-primary d-flex align-items-center">
+                                        <i class="bi bi-pencil me-1"></i> Edit Exam
+                                    </a>
+                                {% else %}
+                                    <span class="btn btn-sm btn-theme-muted d-flex align-items-center" style="pointer-events:none;opacity:.63;">
+                                        <i class="bi bi-pencil me-1"></i> Editing Disabled
+                                    </span>
+                                {% endif %}
+                            {% endif %}
+                            {% if not request.user.is_staff %}
+                                {% if exam.is_published and not exam.locked %}
+                                    {% if completed %}
+                                        <span class="btn btn-sm btn-success d-flex align-items-center" disabled>
+                                            <i class="bi bi-check-circle me-1"></i> Completed
+                                        </span>
+                                    {% else %}
+                                        <a href="{% url 'exams:take_exam' exam.id %}" class="btn btn-sm btn-primary d-flex align-items-center">
+                                            <i class="bi bi-play-circle me-1"></i> Take Exam
+                                        </a>
+                                    {% endif %}
+                                {% elif exam.locked %}
+                                    <span class="btn btn-sm btn-danger d-flex align-items-center" disabled>
+                                        <i class="bi bi-x-circle me-1"></i> This exam is locked
+                                    </span>
+                                {% else %}
+                                    <span class="btn btn-sm btn-secondary d-flex align-items-center" disabled>
+                                        <i class="bi bi-hourglass-split me-1"></i> Not Available Yet
+                                    </span>
+                                {% endif %}
+                            {% endif %}
+                            <button class="btn btn-sm btn-theme-primary d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#resultsModal">
+                                <i class="bi bi-table me-1"></i> View Results
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <span class="badge bg-light theme-muted border d-flex align-items-center">
+                            <i class="bi bi-person-circle me-1"></i>
+                            Uploaded by <strong class="ms-1">{{ exam.created_by.get_full_name|default:exam.created_by.username }}</strong>
                         </span>
-                        <span class="badge bg-light theme-muted border" style="font-size:1.01rem;">
+                        <span class="badge bg-light theme-muted border d-flex align-items-center">
+                            <i class="bi bi-clock-history me-1"></i>
+                            <span id="uploaded-date" data-datetime="{{ exam.created_at|date:"c" }}">{{ exam.created_at|date:"M d, Y H:i" }}</span>
+                        </span>
+                        <span class="badge bg-light theme-muted border">
                             <i class="bi bi-question-circle me-1"></i> {{ questions|length }} Questions
                         </span>
-                        <span class="badge bg-light theme-muted border" style="font-size:1.01rem;">
+                        <span class="badge bg-light theme-muted border">
                             <i class="bi bi-percent me-1"></i> Passing: {{ exam.passing_score }}%
                         </span>
-                        {% if exam.time_limit and exam.time_limit > 0 %}
-                        <span class="badge bg-light theme-muted border" style="font-size:1.01rem;">
+                        {% if exam.time_limit %}
+                        <span class="badge bg-light theme-muted border">
                             <i class="bi bi-clock me-1"></i> Time Limit: {{ exam.time_limit }} min.
                         </span>
                         {% endif %}
                         {% if exam.locked %}
-                        <span class="badge bg-danger text-light" style="font-size:1.01rem;">
-                            <i class="bi bi-lock-fill me-1"></i> Locked
-                        </span>
+                            <span class="badge bg-danger text-light">
+                                <i class="bi bi-lock-fill me-1"></i> Locked
+                            </span>
                         {% endif %}
                     </div>
-
                 </div>
-                <div class="card-body p-4">
-                    <div class="quiz-content mb-4" style="font-size:1.17rem;">
+                <div class="card-body px-4 pt-3">
+                    <div class="quiz-content mb-3 fs-6">
                         {{ exam.description|linebreaksbr }}
                     </div>
-
-                    <div class="d-flex justify-content-between align-items-start flex-wrap">
-                        <div class="d-flex gap-2 flex-wrap">
-                            {% if request.user.is_staff %}
-                                <a href="{% url 'exams:add_exam_questions' exam.id %}" class="btn btn-theme-primary btn-lg d-flex align-items-center ms-2 mt-2 mt-lg-0">
-                                    <i class="bi bi-pencil-square me-2"></i> Edit Questions
-                                </a>
-                                <a href="{% url 'exams:edit_exam' exam.id %}" class="btn btn-theme-primary btn-lg d-flex align-items-center ms-2 mt-2 mt-lg-0">
-                                    <i class="bi bi-pencil me-2"></i> Edit Exam
-                                </a>
-                                {% if exam.locked %}
-                                    <a href="{% url 'exams:unlock_exam' exam.id %}" class="btn btn-theme-maroon-outline btn-lg d-flex align-items-center ms-2 mt-2 mt-lg-0">
-                                        <i class="bi bi-unlock me-2"></i> Unlock Exam
-                                    </a>
-                                {% else %}
-                                    <a href="{% url 'exams:lock_exam' exam.id %}" class="btn btn-theme-primary btn-lg d-flex align-items-center ms-2 mt-2 mt-lg-0">
-                                        <i class="bi bi-lock-fill me-2"></i> Lock Exam
-                                    </a>
-                                {% endif %}
-                            {% endif %}
-                        </div>
+                    {% if not exam.is_published %}
+                    <div class="alert alert-warning mt-2 mb-0 py-2 px-3">
+                        <strong>This exam is not yet published.</strong> Students cannot see or attempt it.
                     </div>
-
-                    {% if not exam.locked and not request.user.is_staff %}
-                        {% if completed %}
-                            <span class="btn btn-success mb-2 disabled" style="font-size:1.17rem;">
-                              <i class="bi bi-check-circle me-1"></i> Completed
-                            </span>
-                        {% else %}
-                            <a href="{% url 'exams:take_exam' exam.id %}" class="btn btn-theme-primary mb-2">Take Exam</a>
-                        {% endif %}
-                    {% elif exam.locked and not request.user.is_staff %}
-                        <span class="btn btn-danger mb-2 disabled" style="font-size:1.17rem;">
-                            <i class="bi bi-x-circle me-1"></i> This exam is locked
-                        </span>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Questions Display Card -->
             {% if request.user.is_staff %}
 
-            <div class="quiz-card card grading-period-card border-0 shadow-sm mb-5">
-                <div class="card-header bg-white pb-2 pt-3 px-4 border-0">
-                    <h4 class="fw-semibold mb-0" style="font-size:1.35rem;">
-                        <i class="bi bi-question-circle me-2"></i>Questions
-                    </h4>
-                </div>
-                <div class="card-body p-4">
-                    {% for question in questions %}
-                        <div class="mb-4">
-                            <h5>Q{{ forloop.counter }}) {{ question.text }}</h5>
-                            <span class="badge bg-info">{{ question.get_question_type_display }}</span>
-                            <ul>
-                                {% for answer in question.answers.all %}
-                                    <li>
-                                        {{ answer.text }}{% if answer.is_correct %} <span class="badge bg-success">Correct</span>{% endif %}
-                                    </li>
+            <!-- Question Details Card -->
+                <div class="card shadow-sm border-0 p-0 mb-5 question-list-card rounded-4">
+                    <div class="card-header bg-white rounded-top-4 px-4 pb-2 pt-3">
+                        <h4 class="fw-semibold mb-0 fs-5">
+                            <i class="bi bi-question-circle me-2"></i> Questions
+                        </h4>
+                    </div>
+                    <div class="card-body px-4 py-4 d-flex flex-column gap-4">
+                        {% if questions %}
+                            <ol class="question-list list-unstyled px-0 mb-0">
+                                {% for question in questions %}
+                                <li class="mb-4 pb-4 px-0 border-bottom rounded-3 question-block">
+                                    <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
+                                        <span class="badge rounded-pill bg-info text-dark fs-7 mb-2 align-self-center" style="letter-spacing:.03em;">{{ question.get_question_type_display }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
+                                        <span class="fw-semibold fs-6 text-primary mb-2">
+                                            Q{{ forloop.counter }})
+                                            {% if question.question_type == "fill_in_the_blanks" %}
+                                                {% with segments=question.text|split:'[blank]' %}
+                                                    {% for seg in segments %}
+                                                        {{ seg|safe }}
+                                                        {% if not forloop.last %}
+                                                            <button type="button"
+                                                                    class="btn btn-theme-maroon-outline fill-blank-view-inline"
+                                                                    tabindex="-1"
+                                                                    style="display:inline-block; min-width:64px; font-size:1em; vertical-align:middle; padding:2.5px 12px; margin:0 2px 0 2px; white-space:normal; pointer-events:none; cursor:default;">
+                                                                {{ question.answers.all|index:forloop.counter0|default:"..." }}
+                                                            </button>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% endwith %}
+                                            {% else %}
+                                                {{ question.text }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="ps-2 ms-2">
+                                        {% if question.question_type == "multiple_choice" or question.question_type == "multiple_answer" %}
+                                            <div class="choice-btn-group">
+                                            {% for answer in question.answers.all %}
+                                                <button type="button"
+                                                        class="btn btn-theme-maroon-outline text-center{% if answer.is_correct %} selected correct-answer-btn{% endif %}"
+                                                        tabindex="-1"
+                                                        style="cursor:default; pointer-events:none; margin-bottom:5px;">
+                                                    {{ answer.text }}
+                                                </button>
+                                            {% endfor %}
+                                            </div>
+                                        {% elif question.question_type == "true_false" %}
+                                            <div class="choice-btn-row d-flex">
+                                            {% for answer in question.answers.all %}
+                                                <div class="choice-btn-col-6">
+                                                    <button type="button"
+                                                            class="btn btn-theme-maroon-outline text-center{% if answer.is_correct %} selected correct-answer-btn{% endif %}"
+                                                            tabindex="-1"
+                                                            style="cursor:default; pointer-events:none; margin-bottom:5px; width:100%;">
+                                                        {{ answer.text }}
+                                                    </button>
+                                                </div>
+                                            {% endfor %}
+                                            </div>
+                                        {% elif question.question_type != "fill_in_the_blanks" %}
+                                            <div class="choice-btn-group">
+                                                {% for answer in question.answers.all %}
+                                                    <button type="button"
+                                                            class="btn btn-theme-maroon-outline text-center{% if answer.is_correct %} selected correct-answer-btn{% endif %}"
+                                                            tabindex="-1"
+                                                            style="cursor:default; pointer-events:none; margin-bottom: 5px;">
+                                                        {{ answer.text }}
+                                                    </button>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                        {% if question.explanation %}
+                                        <div class="alert alert-info py-2 px-3 mb-0 mt-2" style="font-size:0.98rem;">
+                                            <strong>Explanation:</strong> {{ question.explanation }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </li>
                                 {% endfor %}
-                                {% if question.answers.all|length == 0 %}
-                                    <li><span class="text-muted">No answers specified for this question.</span></li>
-                                {% endif %}
-                            </ul>
-                            {% if question.explanation %}
-                                <div class="text-muted">{{ question.explanation }}</div>
+                            </ol>
+                        {% else %}
+                            <div class="alert alert-warning">No questions available for this exam yet.</div>
+                        {% endif %}
+                    </div>
+                </div>
+           {% endif %}
+
+            <!-- Questions Modal -->
+            <div class="modal fade" id="questionsModal" tabindex="-1" aria-labelledby="questionsModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content rounded-3">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="questionsModalLabel">
+                                <i class="bi bi-eye me-2"></i> Exam Questions
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            {% if questions %}
+                                {% for question in questions %}
+                                    <div class="mb-4">
+                                        <h5>Q{{ forloop.counter }}) {{ question.text }}</h5>
+                                        <span class="badge bg-info">{{ question.get_question_type_display }}</span>
+                                        <ul>
+                                            {% for answer in question.answers.all %}
+                                                <li>
+                                                    {{ answer.text }}{% if answer.is_correct %} <span class="badge bg-success">Correct</span>{% endif %}
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% if question.explanation %}
+                                            <div class="text-muted">{{ question.explanation }}</div>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="alert alert-warning">No questions available for this exam yet.</div>
                             {% endif %}
                         </div>
-                    {% endfor %}
-                    {% if questions|length == 0 %}
-                        <div class="alert alert-warning">No questions available for this exam yet.</div>
-                    {% endif %}
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-theme-muted" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
                 </div>
             </div>
-            {% endif %}
 
+            <!-- Results Modal -->
+            <div class="modal fade" id="resultsModal" tabindex="-1" aria-labelledby="resultsModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content rounded-3">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="resultsModalLabel">
+                                <i class="bi bi-table me-2"></i> Exam Results
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row mb-3">
+                                <!-- Section Filter -->
+                                <div class="col-md-4 mb-2">
+                                    <label for="sectionDropdown" class="form-label mb-1">Filter by Section:</label>
+                                    <select id="sectionDropdown" class="form-select form-control">
+                                        <option value="">All Sections</option>
+                                        {% for sec_val, sec_label in section_choices %}
+                                            <option value="{{ sec_val }}">{{ sec_label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <!-- Search -->
+                                <div class="col-md-4 mb-2">
+                                    <label for="resultSearch" class="form-label mb-1">Search Name:</label>
+                                    <input id="resultSearch" type="text" class="form-control" placeholder="Search student name...">
+                                </div>
+                                <!-- Download Buttons -->
+                                <div class="col-md-4 mb-2 d-flex gap-2 align-items-end justify-content-md-end justify-content-start mt-auto">
+                                    <button id="downloadExcelBtn" class="btn btn-success btn-sm" type="button">
+                                        <i class="bi bi-file-earmark-excel"></i> Download as Excel
+                                    </button>
+                                    <button id="downloadDocBtn" class="btn btn-primary btn-sm" type="button">
+                                        <i class="bi bi-file-earmark-word"></i> Download as Docs
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive" id="resultsTableContainer">
+                                <table class="table leaderboard-table align-middle" id="resultsTable">
+                                    <thead>
+                                        <tr>
+                                            <th scope="col" data-col="section">Section <span class="sort-indicator"></span></th>
+                                            <th scope="col" data-col="name">Name <span class="sort-indicator"></span></th>
+                                            <th scope="col" data-col="rawscore">Score <span class="sort-indicator"></span></th>
+                                            <th scope="col" data-col="percent">Percentage <span class="sort-indicator"></span></th>
+                                            <th scope="col" data-col="status">Status <span class="sort-indicator"></span></th>
+                                            <th scope="col" data-col="date">Date Taken <span class="sort-indicator"></span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for attempt in user_attempts %}
+                                        {% with section=attempt.user.section|default_if_none:'' %}
+                                        <tr data-section="{{ section }}">
+                                            <td>
+                                                {% with label=None %}
+                                                    {% for sec_val, sec_label in section_choices %}
+                                                        {% if sec_val == section %}
+                                                            {% with label=sec_label %}{% endwith %}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                    {{ label|default:section|default:"N/A" }}
+                                                {% endwith %}
+                                            </td>
+                                            <td>{{ attempt.user.get_full_name|default:attempt.user.username }}</td>
+                                            <td data-raw="{{ attempt.raw_points|floatformat:2|default:0.0 }}" data-total="{{ attempt.total_points|floatformat:2|default:0.0 }}">
+                                                {{ attempt.raw_points|floatformat:0 }} / {{ attempt.total_points|floatformat:0 }}
+                                            </td>
+                                            <td data-sort="{{ attempt.score|floatformat:2 }}">{{ attempt.score|smart_percent }}%</td>
+                                            <td data-sort="{% if attempt.passed %}1{% else %}0{% endif %}">
+                                                {% if attempt.passed %}
+                                                    <span class="badge bg-success">Passed</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">Failed</span>
+                                                {% endif %}
+                                            </td>
+                                            <td data-sort="{{ attempt.start_time|date:'c' }}">
+                                                <span class="local-time" data-datetime="{{ attempt.start_time|date:"c" }}">
+                                                    {{ attempt.start_time|date:"M d, Y H:i" }}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% endwith %}
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted">No results found.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="resultsPagination" class="access-theme-pagination"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-theme-muted" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         <!-- Optionally: Sidebar for future extensions -->
     </div>
 </div>
 
 <style>
-
-.btn-theme-maroon-outline {
-    letter-spacing: .01em;
-    font-weight: 600;
-    border-radius: 10px;
-    background: #fff;
-    color: #6A1829;
-    border: 2px solid #6A1829;
-    transition: background 0.15s, color 0.15s;
+/* --- Results Modal Table Pagination & Scroll Enhancements --- */
+#resultsTableContainer {
+  max-height: 400px;
+  overflow-y: auto;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 0.8rem;
 }
-.btn-theme-maroon-outline:hover,
-.btn-theme-maroon-outline:focus {
-    background: #6A1829;
-    color: #fff;
+.leaderboard-table th {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    position: relative;
 }
-
-.btn-theme-primary {
-    background: var(--primary-color);
-    color: #fff;
-    border: none;
-    box-shadow: none;
-    font-weight: 600;
-    letter-spacing: .01em;
-    transition: background 0.1s;
+.leaderboard-table th {
+    position: relative;
 }
-.btn-theme-primary:hover, .btn-theme-primary:focus {
-    background: var(--secondary-color);
-    color: #fff;
+.leaderboard-table th .sort-indicator {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.9em;
 }
-
+.leaderboard-table th.sorted-asc,
+.leaderboard-table th.sorted-desc {
+    background-color: rgba(106, 24, 41, 0.05);
+}
+.access-theme-pagination {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
 body {
     font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -194,17 +414,47 @@ body {
 .breadcrumb .breadcrumb-link:hover, .breadcrumb .breadcrumb-link:focus {
     border-bottom: 2px solid var(--primary-color);
 }
-.quiz-card,
-.grading-period-card {
-    border-radius: 14px;
+/* --- Quiz Page Redesign --- */
+.quiz-main-card {
     background: #fff;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08),0 1.5px 5px rgba(86, 113, 156,.02);
-    overflow: hidden;
-    transition: box-shadow 0.18s;
+    border: 1.5px solid #e4e9f2;
 }
-.quiz-card:hover {
-    box-shadow: 0 6px 30px rgba(0,0,0,0.10);
-    transform: translateY(-3px) scale(1.01);
+.question-list-card {
+    background: #fafbff;
+}
+.question-list .question-block:last-child {
+    border-bottom: 0 !important;
+}
+.question-list .question-block {
+    background: #f6f8fc;
+    box-shadow: 0 1px 4px rgba(86,113,156,.04);
+}
+.question-list .fw-semibold.fs-6 {
+    font-size: 1.13rem !important;
+}
+/* Ensure question text wraps in cards and never overflows */
+.question-list .fw-semibold.fs-6,
+.question-block .fw-semibold.fs-6,
+.question-list .question-block .fw-semibold,
+.question-list .question-block span,
+.question-list .question-block {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100%;
+    display: block;
+}
+.question-list ul li {
+    list-style: disc inside;
+    margin-left: 0.5em;
+}
+.question-list ul li .badge {
+    font-size: 0.82rem;
+    vertical-align: middle;
+}
+.card, .card-header, .card-body {
+    border-radius: 16px !important;
 }
 .theme-shadow {
     box-shadow: 0 1px 8px rgba(86, 113, 156,.10) !important;
@@ -247,23 +497,97 @@ body {
     color: #888 !important;
     border: 1px solid #eee;
 }
-@media (max-width: 767px) {
-    .quiz-card,
-    .grading-period-card {
-        margin-bottom: 2rem;
+@media (max-width: 900px) {
+    .quiz-main-card, .question-list-card {
+        padding-left: 0 !important; padding-right: 0 !important;
     }
-    h2 {
-        font-size: 1.4rem !important;
+    .card-header, .card-body { padding-left: 1rem !important; padding-right: 1rem !important; }
+    .d-flex.flex-wrap.gap-2.align-items-center { justify-content: start !important; }
+}
+@media (max-width: 576px) {
+    .quiz-main-card, .question-list-card { padding: 0 !important; }
+    .btn.btn-sm, .btn-theme-primary { width: 100%; min-width: 0; margin-bottom: 8px; }
+    .card-header, .card-body { padding: 0.7rem !important; }
+    .question-block { padding: 0.7rem !important; }
+}
+
+/* Quiz answer button styles */
+:root {
+    --maroon: #6A1829;
+    --maroon-hover: #a32c2c;
+    --white: #fff;
+}
+.btn-theme-maroon-outline {
+    font-size: 1.13rem;
+    font-weight: 600;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--maroon);
+    border: 2px solid var(--maroon);
+    transition: background 0.15s, color 0.15s;
+    padding: 0.75rem 1.1rem;
+    width: 100%;
+    text-align: left;
+    box-shadow: 0 1px 2px rgba(128,0,0,0.10);
+    margin-bottom: 0.3rem;
+}
+.btn-theme-maroon-outline.selected,
+.btn-theme-maroon-outline.correct-answer-btn {
+    background: var(--maroon);
+    color: #fff;
+}
+.choice-btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-bottom: 0.6rem;
+}
+/* Center all answer choice text */
+.btn-theme-maroon-outline {
+    text-align: center !important;
+}
+
+/* True/false: Side by side columns */
+.choice-btn-row {
+    display: flex;
+    gap: 1rem;
+    margin: 0 0 1rem 0;
+}
+.choice-btn-col-6 {
+    flex: 0 0 48%;
+    max-width: 48%;
+}
+
+/* For mobile, stack vertically */
+@media (max-width: 575px) {
+    .choice-btn-row {
+        flex-direction: column;
+        gap: 0.75rem;
     }
-    .btn-theme-primary,
-    .btn-theme-success,
-    .btn-theme-muted  {
-        font-size: 0.97rem;
-        padding: 0.72rem 0.8rem;
+    .choice-btn-col-6 {
+        max-width: 100%;
+        flex: 1 1 100%;
     }
 }
+
+/* Ensures fill-in-the-blanks answer button sits inline and does not force a line break */
+.fill-blank-view-inline {
+    display: inline-block !important;
+    margin-bottom: 0px !important;
+    vertical-align: middle !important;
+    min-width: 64px;
+    padding: 2.5px 12px;
+}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
+function confirmPublishUnpublishView(isPublished) {
+    if (isPublished === "True" || isPublished === true) {
+        return confirm("Are you sure you want to unpublish this exam? Students will no longer be able to see or attempt it.");
+    } else {
+        return confirm("Publishing this exam will make it visible and available for students. Continue?");
+    }
+}
 /*
  * Convert all timestamps to local Philippine time (Asia/Manila, UTC+8) in 12hr format with AM/PM.
  * Example: "Apr 15, 2024 06:32 PM"
@@ -281,7 +605,9 @@ function toPhilippineTimeString(dateISOString) {
     .replace(/(\d{2}) (.*)/, '$1, $2');
   return phString;
 }
-window.addEventListener('DOMContentLoaded', function() {
+
+// Results Table Filtering, Sorting, Pagination, and Export
+document.addEventListener('DOMContentLoaded', function() {
   // Main uploaded date
   var up = document.getElementById('uploaded-date');
   if (up && up.dataset.datetime) {
@@ -293,6 +619,326 @@ window.addEventListener('DOMContentLoaded', function() {
       el.textContent = toPhilippineTimeString(el.dataset.datetime);
     }
   });
+  
+  // Results Table Functionality
+  const table = document.getElementById('resultsTable');
+  if (table) {
+    const rows = Array.from(table.querySelectorAll('tbody tr'));
+    const sectionFilter = document.getElementById('sectionDropdown');
+    const nameSearch = document.getElementById('resultSearch');
+    let filterState = { section: '', search: '' };
+    let sortState = { column: 'name', direction: 'asc' };
+    
+    // Filtering function
+    function filterUpdate() {
+      let active = rows;
+      
+      // Section filter
+      if (filterState.section) {
+        active = active.filter(row => row.getAttribute('data-section') === filterState.section);
+      }
+      
+      // Name search
+      if (filterState.search) {
+        const s = filterState.search.trim().toLowerCase();
+        active = active.filter(row => {
+          const tds = row.querySelectorAll('td');
+          return tds[1] && tds[1].textContent.toLowerCase().includes(s);
+        });
+      }
+      
+      // Sort the filtered rows
+      sortRows(active);
+      
+      // Hide all, show only filtered ones
+      rows.forEach(row => row.style.display = 'none');
+      active.forEach(row => row.style.display = '');
+      
+      // Update pagination
+      paginateTable(active);
+    }
+    
+    // Sorting function
+    function sortRows(rowsToSort) {
+      const headers = table.querySelectorAll('th');
+      headers.forEach(header => {
+        header.classList.remove('sorted-asc', 'sorted-desc');
+        header.querySelector('.sort-indicator').textContent = '';
+      });
+      
+      const currentHeader = Array.from(headers).find(h => h.getAttribute('data-col') === sortState.column);
+      if (currentHeader) {
+        currentHeader.classList.add(sortState.direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        currentHeader.querySelector('.sort-indicator').textContent = sortState.direction === 'asc' ? ' ↑' : ' ↓';
+      }
+      
+      rowsToSort.sort((a, b) => {
+        let valA, valB;
+        
+        if (sortState.column === 'section') {
+          valA = a.cells[0].textContent.trim();
+          valB = b.cells[0].textContent.trim();
+        } else if (sortState.column === 'name') {
+          valA = a.cells[1].textContent.trim();
+          valB = b.cells[1].textContent.trim();
+        } else if (sortState.column === 'rawscore') {
+          valA = parseFloat(a.cells[2].getAttribute('data-raw')) || 0;
+          valB = parseFloat(b.cells[2].getAttribute('data-raw')) || 0;
+        } else if (sortState.column === 'percent') {
+          valA = parseFloat(a.cells[3].getAttribute('data-sort')) || 0;
+          valB = parseFloat(b.cells[3].getAttribute('data-sort')) || 0;
+        } else if (sortState.column === 'status') {
+          valA = parseInt(a.cells[4].getAttribute('data-sort')) || 0;
+          valB = parseInt(b.cells[4].getAttribute('data-sort')) || 0;
+        } else if (sortState.column === 'date') {
+          valA = a.cells[5].getAttribute('data-sort') || '';
+          valB = b.cells[5].getAttribute('data-sort') || '';
+        }
+        
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return sortState.direction === 'asc' ? valA - valB : valB - valA;
+        } else {
+          return sortState.direction === 'asc' ? 
+            valA.toString().localeCompare(valB.toString()) : 
+            valB.toString().localeCompare(valA.toString());
+        }
+      });
+      
+      return rowsToSort;
+    }
+    
+    // Pagination
+    const pageSize = 10;
+    let currentPage = 1;
+    
+    function paginateTable(visibleRows) {
+      const totalRows = visibleRows.length;
+      const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+      
+      if (currentPage > totalPages) currentPage = 1;
+      
+      visibleRows.forEach((row, i) => {
+        row.style.display = (i >= (currentPage-1) * pageSize && i < currentPage * pageSize) ? '' : 'none';
+      });
+      
+      renderPagination(totalRows, totalPages);
+    }
+    
+    function renderPagination(totalRows, totalPages) {
+      const pagDiv = document.getElementById('resultsPagination');
+      pagDiv.innerHTML = '';
+      
+      if (totalPages <= 1) return;
+      
+      // Add previous button if not on first page
+      if (currentPage > 1) {
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'page-link';
+        prevBtn.innerHTML = '&laquo;';
+        prevBtn.onclick = function() {
+          currentPage--;
+          filterUpdate();
+        };
+        pagDiv.appendChild(prevBtn);
+      }
+      
+      // Determine page range to show
+      let startPage = Math.max(1, currentPage - 2);
+      let endPage = Math.min(totalPages, startPage + 4);
+      
+      // Adjust if we're near the end
+      if (endPage - startPage < 4) {
+        startPage = Math.max(1, endPage - 4);
+      }
+      
+      // First page link if not in range
+      if (startPage > 1) {
+        const firstBtn = document.createElement('button');
+        firstBtn.className = 'page-link';
+        firstBtn.innerText = '1';
+        firstBtn.onclick = function() {
+          currentPage = 1;
+          filterUpdate();
+        };
+        pagDiv.appendChild(firstBtn);
+        
+        if (startPage > 2) {
+          const ellipsis = document.createElement('span');
+          ellipsis.className = 'page-link';
+          ellipsis.innerHTML = '&hellip;';
+          ellipsis.style.pointerEvents = 'none';
+          pagDiv.appendChild(ellipsis);
+        }
+      }
+      
+      // Page links
+      for (let p = startPage; p <= endPage; ++p) {
+        const btn = document.createElement('button');
+        btn.className = 'page-link' + (p === currentPage ? ' active-btn' : '');
+        btn.innerText = p;
+        btn.onclick = function() {
+          currentPage = p;
+          filterUpdate();
+        };
+        pagDiv.appendChild(btn);
+      }
+      
+      // Last page link if not in range
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+          const ellipsis = document.createElement('span');
+          ellipsis.className = 'page-link';
+          ellipsis.innerHTML = '&hellip;';
+          ellipsis.style.pointerEvents = 'none';
+          pagDiv.appendChild(ellipsis);
+        }
+        
+        const lastBtn = document.createElement('button');
+        lastBtn.className = 'page-link';
+        lastBtn.innerText = totalPages;
+        lastBtn.onclick = function() {
+          currentPage = totalPages;
+          filterUpdate();
+        };
+        pagDiv.appendChild(lastBtn);
+      }
+      
+      // Add next button if not on last page
+      if (currentPage < totalPages) {
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'page-link';
+        nextBtn.innerHTML = '&raquo;';
+        nextBtn.onclick = function() {
+          currentPage++;
+          filterUpdate();
+        };
+        pagDiv.appendChild(nextBtn);
+      }
+    }
+    
+    // Event Listeners
+    if (sectionFilter) {
+      sectionFilter.addEventListener('change', function() {
+        filterState.section = this.value;
+        filterUpdate();
+      });
+    }
+    
+    if (nameSearch) {
+      nameSearch.addEventListener('input', function() {
+        filterState.search = this.value;
+        filterUpdate();
+      });
+    }
+    
+    // Column sorting
+    table.querySelectorAll('th').forEach(th => {
+      th.addEventListener('click', function() {
+        const column = this.getAttribute('data-col');
+        if (sortState.column === column) {
+          sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+        } else {
+          sortState.column = column;
+          sortState.direction = 'asc';
+        }
+        filterUpdate();
+      });
+    });
+    
+    // Excel Export
+    const downloadExcelBtn = document.getElementById('downloadExcelBtn');
+    if (downloadExcelBtn) {
+      downloadExcelBtn.addEventListener('click', function() {
+        // Get visible rows only
+        const visibleRows = rows.filter(row => {
+          return row.style.display !== 'none' && window.getComputedStyle(row).display !== 'none';
+        });
+        
+        // Get headers
+        const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.replace(/[↑↓]/g, '').trim());
+        
+        // Create data array
+        const data = [headers];
+        visibleRows.forEach(row => {
+          data.push(Array.from(row.querySelectorAll('td')).map(td => td.textContent.trim()));
+        });
+        
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        
+        // Set column widths
+        const colWidths = [15, 25, 10, 10, 10, 20];
+        ws['!cols'] = colWidths.map(w => ({ wch: w }));
+        
+        XLSX.utils.book_append_sheet(wb, ws, 'Results');
+        XLSX.writeFile(wb, '{{ exam.title|escapejs }} - Results.xlsx');
+      });
+    }
+    
+    // Word/Doc Export
+    const downloadDocBtn = document.getElementById('downloadDocBtn');
+    if (downloadDocBtn) {
+      downloadDocBtn.addEventListener('click', function() {
+        const visibleRows = rows.filter(row => {
+          return row.style.display !== 'none' && window.getComputedStyle(row).display !== 'none';
+        });
+        
+        // Create document content
+        let docContent = `<h2>{{ exam.title|escapejs }} - Results</h2>`;
+        docContent += '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;margin-top:10px;width:100%"><tr>';
+        
+        // Add headers
+        table.querySelectorAll('thead th').forEach(th => {
+          docContent += `<th style="background-color:#f2f2f2;font-weight:bold">${th.textContent.replace(/[↑↓]/g, '').trim()}</th>`;
+        });
+        docContent += '</tr>';
+        
+        // Add data rows
+        visibleRows.forEach(row => {
+          docContent += '<tr>';
+          row.querySelectorAll('td').forEach((td, index) => {
+            let cellContent = td.textContent.trim();
+            // Style for passed/failed status
+            if (index === 4) {
+              if (cellContent.includes('Passed')) {
+                docContent += `<td style="color:green">${cellContent}</td>`;
+              } else if (cellContent.includes('Failed')) {
+                docContent += `<td style="color:red">${cellContent}</td>`;
+              } else {
+                docContent += `<td>${cellContent}</td>`;
+              }
+            } else {
+              docContent += `<td>${cellContent}</td>`;
+            }
+          });
+          docContent += '</tr>';
+        });
+        docContent += '</table>';
+        
+        // Create and download the document
+        const blob = new Blob([
+          '<html><head><meta charset="UTF-8"><title>{{ exam.title|escapejs }} - Results</title></head>' +
+          '<body>' + docContent + '</body></html>'
+        ], {type: 'application/msword'});
+        
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '{{ exam.title|escapejs }} - Results.doc';
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(function() {
+          URL.revokeObjectURL(url);
+          a.remove();
+        }, 500);
+      });
+    }
+    
+    // Initialize
+    filterUpdate();
+  }
 });
 </script>
 {% endblock %}
