@@ -4,7 +4,7 @@ from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from lessons.models import Lesson, LessonProgress
+from lessons.models import Lesson, LessonProgress, GRADING_PERIOD_CHOICES as LESSON_GRADING_PERIOD_CHOICES
 from quizzes.models import Quiz, QuizAttempt
 from exams.models import Exam, ExamAttempt
 from .models import StudentProgress, ActivityLog
@@ -24,7 +24,8 @@ from django.conf import settings
 
 TEMPLATE_PATH = "media/templates/RANKING_TEMPLATE.docx"
 
-GRADING_PERIODS = [
+# Use imported choices if available, otherwise fallback to default
+GRADING_PERIODS = LESSON_GRADING_PERIOD_CHOICES if 'LESSON_GRADING_PERIOD_CHOICES' in locals() else [
     ('prelim', 'Prelim'),
     ('midterm', 'Midterm'),
     ('prefinal', 'Prefinal'),
@@ -73,7 +74,37 @@ def student_dashboard(request):
 
     from django.contrib.auth import get_user_model
     User = get_user_model()
-    all_students = User.objects.filter(is_staff=False)
+    # Get filter parameters
+    selected_period = request.GET.get('grading_period', 'overall')
+    selected_section = request.GET.get('section', 'all')
+    search_query = request.GET.get('search', '').strip()
+    
+    # Initial queryset: all non-staff students
+    students_qs = User.objects.filter(is_staff=False)
+    
+    # Apply section filter if available
+    if selected_section != 'all':
+        # Attempt to join with students or from User if 'section' field
+        try:
+            from students.models import Student
+            student_ids = Student.objects.filter(section=selected_section).values_list('user_id', flat=True)
+            students_qs = students_qs.filter(id__in=student_ids)
+        except Exception:
+            # Fallback: check User.section if available
+            if hasattr(User, 'section'):
+                students_qs = students_qs.filter(section=selected_section)
+    
+    # Apply search filter
+    if search_query:
+        students_qs = students_qs.filter(
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query) |
+            Q(username__icontains=search_query)
+        )
+    
+    # Define all_students as the filtered queryset
+    all_students = students_qs
+    
     student_totals = []
     for student in all_students:
         quiz_qs = QuizAttempt.objects.filter(
@@ -294,6 +325,59 @@ def admin_dashboard(request):
 
     from django.contrib.auth import get_user_model
     User = get_user_model()
+    
+    # Get filter parameters
+    selected_period = request.GET.get('grading_period', 'overall')
+    selected_section = request.GET.get('section', 'all')
+    search_query = request.GET.get('search', '').strip()
+
+    students_qs = User.objects.filter(is_staff=False)
+    if selected_section != 'all':
+        try:
+            from students.models import Student
+            student_ids = Student.objects.filter(section=selected_section).values_list('user_id', flat=True)
+            students_qs = students_qs.filter(id__in=student_ids)
+        except Exception:
+            if hasattr(User, 'section'):
+                students_qs = students_qs.filter(section=selected_section)
+    if search_query:
+        students_qs = students_qs.filter(
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query) |
+            Q(username__icontains=search_query)
+        )
+    all_students = students_qs
+    
+    # Get section choices robustly
+    section_choices = []
+    try:
+        from students.models import SECTION_CHOICES
+        section_choices = SECTION_CHOICES
+    except ImportError:
+        try:
+            from accounts.models import SECTION_CHOICES
+            section_choices = SECTION_CHOICES
+        except ImportError:
+            # Try to build choices from existing students if the static is missing
+            section_set = set()
+            try:
+                from students.models import Student
+                section_set = set(Student.objects.values_list('section', flat=True))
+            except Exception:
+                pass
+            if not section_set:
+                # Fallback: guess from User objects if they have 'section' field
+                if hasattr(User, 'section'):
+                    section_set = set(User.objects.exclude(section=None).values_list('section', flat=True))
+            section_choices = [(sec, sec) for sec in section_set if sec]
+    # Ensure at least "All Sections" option exists
+    if section_choices and ("all", "All Sections") not in section_choices:
+        section_choices = [("all", "All Sections")] + list(section_choices)
+    elif not section_choices:
+        section_choices = [("all", "All Sections")]
+
+    # Use grading period choices from lessons model
+    grading_periods = LESSON_GRADING_PERIOD_CHOICES
 
     total_users = User.objects.filter(is_superuser=False).count()
     new_users_week = User.objects.filter(
@@ -451,7 +535,7 @@ def admin_dashboard(request):
     else:
         exam_stats['pass_rate'] = 0
 
-    all_students = User.objects.filter(is_staff=False)
+    # Use the filtered students from above
     student_totals = []
     for student in all_students:
         quiz_qs = QuizAttempt.objects.filter(
@@ -484,14 +568,14 @@ def admin_dashboard(request):
             'total_points': stu['total_points'],
         })
 
-    # Calculate student grades
+    # Calculate student grades with null handling
     students_grades = []
     try:
         from students.models import Student
         has_student_model = True
     except ImportError:
         has_student_model = False
-        
+            
     for student in all_students:
         # Try to get section information if available
         section_name = None
@@ -499,46 +583,53 @@ def admin_dashboard(request):
             try:
                 student_profile = Student.objects.get(user=student)
                 section_name = getattr(student_profile, "section", None)
+                # Section can be a model, a callable, or a direct string!
                 if callable(section_name):
                     section_name = section_name()
                 elif hasattr(section_name, "name"):
                     section_name = section_name.name
+                elif isinstance(section_name, str):
+                    section_name = section_name
+                else:
+                    section_name = str(section_name or "N/A")
             except Student.DoesNotExist:
-                pass
-        
-        # Find student in student_totals
-        student_data = next((s for s in student_totals if s['user_id'] == student.id), None)
-        if not student_data:
-            continue
+                section_name = "N/A"
+        elif hasattr(student, "section"):
+            section_name = getattr(student, "section", "N/A")
             
-        # Quiz and exam grades as percentages
-        quiz_percentage = 0
-        exam_percentage = 0
-        
-        # Compute based on available data
-        total_quiz_possible = 40  # If 40% is the weight
-        total_exam_possible = 60  # If 60% is the weight
-        
-        stu_quiz_points = student_data['quiz_points']
-        stu_exam_points = student_data['exam_points']
-        
-        # For demonstration, assume max points are normalized to 100 for each
-        max_quiz = 40  # max quiz percentage points
-        max_exam = 60  # max exam percentage points
-        
-        if max_quiz: 
-            quiz_percentage = stu_quiz_points / max_quiz * 40  # Convert to 40% scale
-        if max_exam: 
-            exam_percentage = stu_exam_points / max_exam * 60  # Convert to 60% scale
-        
-        weighted_grade = quiz_percentage + exam_percentage
+        # Build filters for grading period
+        quiz_filter = dict(user=student, completed=True, quiz__is_archived=False)
+        exam_filter = dict(user=student, completed=True)
+        if selected_period and selected_period != 'overall':
+            quiz_filter['grading_period'] = selected_period
+            exam_filter['grading_period'] = selected_period
+            
+        # Quiz average (out of 100) for the selected period
+        student_quiz_attempts = QuizAttempt.objects.filter(**quiz_filter)
+        if student_quiz_attempts.exists():
+            quiz_avg = student_quiz_attempts.aggregate(avg=Avg('score'))['avg']
+        else:
+            quiz_avg = None  # No attempts exist
+
+        # Exam average (out of 100) for the selected period
+        student_exam_attempts = ExamAttempt.objects.filter(**exam_filter)
+        if student_exam_attempts.exists():
+            exam_avg = student_exam_attempts.aggregate(avg=Avg('score'))['avg']
+        else:
+            exam_avg = None  # No attempts exist
+                
+        # Calculate final grade only if both components exist
+        if quiz_avg is not None and exam_avg is not None:
+            final_grade = quiz_avg * 0.4 + exam_avg * 0.6  # Fixed weights (40% quiz, 60% exam)
+        else:
+            final_grade = None
         
         students_grades.append({
             'section': section_name or "N/A",
-            'full_name': student_data['full_name'],
-            'quiz_grade': quiz_percentage,
-            'exam_grade': exam_percentage,
-            'grade': weighted_grade,
+            'full_name': f"{student.first_name} {student.last_name}".strip() or student.username,
+            'quiz_grade': quiz_avg,
+            'exam_grade': exam_avg,
+            'grade': final_grade,
         })
 
     context = {
@@ -551,13 +642,16 @@ def admin_dashboard(request):
         'recent_activities': recent_activities,
         'quiz_stats': quiz_stats,
         'exam_stats': exam_stats,
-        'grading_periods': GRADING_PERIODS,
+        'grading_periods': grading_periods,
+        'section_choices': section_choices,
+        'selected_period': selected_period,
+        'selected_section': selected_section,
+        'search_query': search_query,
         'period_stats': period_stats,
         'overall_rankings': overall_rankings,
         'students_grades': students_grades,
     }
     return render(request, 'dashboard/admin.html', context)
-
 
 
 
@@ -568,6 +662,36 @@ def download_rankings_docx(request, period_value=None):
 
     from django.contrib.auth import get_user_model
     User = get_user_model()
+    
+    # Get filter parameters
+    selected_section = request.GET.get('section', 'all')
+    search_query = request.GET.get('search', '').strip()
+    
+    # Initial queryset: all non-staff students
+    students_qs = User.objects.filter(is_staff=False)
+    
+    # Apply section filter if available
+    if selected_section != 'all':
+        # Attempt to join with students or from User if 'section' field
+        try:
+            from students.models import Student
+            student_ids = Student.objects.filter(section=selected_section).values_list('user_id', flat=True)
+            students_qs = students_qs.filter(id__in=student_ids)
+        except Exception:
+            # Fallback: check User.section if available
+            if hasattr(User, 'section'):
+                students_qs = students_qs.filter(section=selected_section)
+    
+    # Apply search filter
+    if search_query:
+        students_qs = students_qs.filter(
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query) |
+            Q(username__icontains=search_query)
+        )
+    
+    # Define all_students as the filtered queryset
+    all_students = students_qs
 
 
     tables_to_include = request.GET.getlist('tables[]')
@@ -695,7 +819,11 @@ def download_rankings_docx(request, period_value=None):
             'exam_rankings': exam_rankings,
         }
 
-    all_students = User.objects.filter(is_staff=False)
+    # Get filter parameters
+    selected_section = request.GET.get('section', 'all')
+    search_query = request.GET.get('search', '').strip()
+    
+    # Use the filtered students from above
     student_totals = []
     for student in all_students:
         quiz_qs = QuizAttempt.objects.filter(

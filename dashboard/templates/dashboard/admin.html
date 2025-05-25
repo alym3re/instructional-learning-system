@@ -92,16 +92,15 @@
                         <div class="col-12 col-sm-4">
                             <label class="form-label fw-semibold mb-1">Section</label>
                             <select name="section" class="form-select" onchange="this.form.submit();">
-                                <option value="all"{% if selected_section == 'all' %} selected{% endif %}>All Sections</option>
-                                {% for sec in class_sections %}
-                                    <option value="{{ sec.id }}"{% if sec.id|stringformat:"s" == selected_section %} selected{% endif %}>{{ sec.name }}</option>
+                                {% for sec in section_choices %}
+                                    <option value="{{ sec.0 }}"{% if sec.0 == selected_section %} selected{% endif %}>{{ sec.1 }}</option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="col-12 col-sm-4">
                             <label class="form-label fw-semibold mb-1 visually-hidden">Search</label>
                             <div class="input-group">
-                                <input type="text" class="form-control" placeholder="Search student name..." name="search" value="{{ search_query|default_if_none:'' }}">
+                                <input type="text" class="form-control" placeholder="Search student name..." name="search" value="{{ search_query|default_if_none:'' }}" onkeypress="if(event.keyCode==13) this.form.submit();">
                                 <button class="btn btn-secondary" type="submit">
                                     <i class="bi bi-search"></i>
                                 </button>
@@ -115,9 +114,10 @@
                                 <tr class="fw-semibold text-maroon bg-light">
                                     <th class="bg-white rounded-start-3">Section</th>
                                     <th class="bg-white">Name</th>
-                                    <th class="bg-white">Quiz Grade (out of 40%)</th>
-                                    <th class="bg-white">Exam Grade (out of 60%)</th>
-                                    <th class="bg-white rounded-end-3">Grade (40+60)</th>
+                                    <th class="bg-white">Quiz Grade (40%)</th>
+                                    <th class="bg-white">Exam Grade (60%)</th>
+                                    <th class="bg-white">Grade (40+60)</th>
+                                    <th class="bg-white rounded-end-3">GPA</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -127,31 +127,69 @@
                                     <td class="fw-medium">{{ stu.section }}</td>
                                     <td class="fw-semibold text-start" style="letter-spacing:0.5px;">{{ stu.full_name }}</td>
                                     <td>
-                                        <span class="badge {% if stu.quiz_grade >= 36 %}bg-success{% elif stu.quiz_grade >= 28 %}bg-warning{% else %}bg-danger{% endif %}">
-                                            {{ stu.quiz_grade|floatformat:2 }}%
-                                        </span>
+                                        {% if stu.quiz_grade is not None %}
+                                            <span class="badge {% if stu.quiz_grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
+                                                {{ stu.quiz_grade|floatformat:2 }}%
+                                            </span>
+                                        {% else %}
+                                            <span class="badge text-dark">--</span>
+                                        {% endif %}
                                     </td>
                                     <td>
-                                        <span class="badge {% if stu.exam_grade >= 54 %}bg-success{% elif stu.exam_grade >= 42 %}bg-warning{% else %}bg-danger{% endif %}">
-                                            {{ stu.exam_grade|floatformat:2 }}%
-                                        </span>
+                                        {% if stu.exam_grade is not None %}
+                                            <span class="badge {% if stu.exam_grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
+                                                {{ stu.exam_grade|floatformat:2 }}%
+                                            </span>
+                                        {% else %}
+                                            <span class="badge text-dark">--</span>
+                                        {% endif %}
                                     </td>
                                     <td class="fw-bold">
-                                        <span class="badge {% if stu.grade >= 75 %}bg-success{% elif stu.grade >= 60 %}bg-warning{% else %}bg-danger{% endif %}">
-                                            {{ stu.grade|floatformat:2 }}%
-                                        </span>
+                                        {% if stu.grade is not None %}
+                                            <span class="badge {% if stu.grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
+                                                {{ stu.grade|floatformat:2 }}%
+                                            </span>
+                                        {% else %}
+                                            <span class="badge text-dark">--</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="fw-bold">
+                                        {% if stu.grade is not None %}
+                                            {% if stu.grade >= 99 %}
+                                                <span class="badge bg-success text-light">1.00</span>
+                                            {% elif stu.grade >= 96 %}
+                                                <span class="badge bg-success text-light">1.25</span>
+                                            {% elif stu.grade >= 93 %}
+                                                <span class="badge bg-success text-light">1.50</span>
+                                            {% elif stu.grade >= 90 %}
+                                                <span class="badge bg-success text-light">1.75</span>
+                                            {% elif stu.grade >= 87 %}
+                                                <span class="badge bg-success text-light">2.00</span>
+                                            {% elif stu.grade >= 84 %}
+                                                <span class="badge bg-success text-light">2.25</span>
+                                            {% elif stu.grade >= 81 %}
+                                                <span class="badge bg-success text-light">2.50</span>
+                                            {% elif stu.grade >= 78 %}
+                                                <span class="badge bg-success text-light">2.75</span>
+                                            {% elif stu.grade >= 75 %}
+                                                <span class="badge bg-success text-light">3.00</span>
+                                            {% else %}
+                                                <span class="badge bg-danger text-light">5.00</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge text-dark">--</span>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}
                                 {% else %}
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted">No grades data available for this selection.</td>
+                                    <td colspan="6" class="text-center text-muted">No grades data available for this selection.</td>
                                 </tr>
                                 {% endif %}
                             </tbody>
                         </table>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -282,22 +320,38 @@
 
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/docx@8.2.2/build/index.umd.js"></script>
+
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // --- Excel Export with Beautified Styling ---
-    document.getElementById('downloadExcelBtn').addEventListener('click', function() {
-        const quizTitle = document.querySelector('h2.fw-bold').innerText.trim().replace(/[^a-zA-Z0-9]/g, '_');
-        const table = document.getElementById('resultsTable');
-        const headerCells = Array.from(table.querySelectorAll('thead th'));
-        const rows = Array.from(table.querySelectorAll('tbody tr'))
-            .filter(row => row.style.display !== 'none' && !row.querySelector('td[colspan]'));
+    // Helper function to get filter info
+    function getFilterInfo() {
+        const form = document.getElementById('students-grades-filter-form');
+        const periodSelect = form.querySelector('select[name="grading_period"]');
+        const sectionSelect = form.querySelector('select[name="section"]');
+        
+        // Get selected text (not just value)
+        const periodText = periodSelect.options[periodSelect.selectedIndex].text;
+        const sectionText = sectionSelect.options[sectionSelect.selectedIndex].text;
+        
+        return {
+            period: periodText,
+            section: sectionText
+        };
+    }
 
+    // --- Excel Export with Filter Info ---
+    document.getElementById('downloadExcelBtn').addEventListener('click', function() {
+        const filterInfo = getFilterInfo();
+        const table = document.getElementById('students-grades-table');
+        const headerCells = Array.from(table.querySelectorAll('thead th'));
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
+        
         // App color references
         const MAROON = '6A1829';
-        const MAROON_RGB = 'rgba(106,24,41,1)';
         const MAROON_FG = 'FFFFFF';
-        const APP_BG = 'FAFBFF'; // Question card background
-        const LIGHT_BG = 'F6F8FC'; // Lighter gray for rows
+        const APP_BG = 'FAFBFF';
+        const LIGHT_BG = 'F6F8FC';
         const BORDER = 'e4e9f2';
         const PASS_BG = 'DFF0D8';
         const PASS_TEXT = '388E3C';
@@ -305,83 +359,56 @@ document.addEventListener('DOMContentLoaded', function() {
         const FAIL_TEXT = 'C62828';
         const FONT = 'Poppins,Segoe UI,Tahoma,Geneva,Verdana,sans-serif';
 
-        // Find special columns
-        let nameCol = -1, scoreCol = -1, percentCol = -1, statusCol = -1;
-        headerCells.forEach((th, i) => {
-            const head = th.innerText.trim().toLowerCase();
-            if (head === 'name') nameCol = i;
-            if (head.includes('score')) scoreCol = i;
-            if (head.includes('percent')) percentCol = i;
-            if (head.includes('status')) statusCol = i;
-        });
-
-        // Build header row with name split
-        const headers = [];
-        headerCells.forEach((th, i) => {
-            if (i === nameCol) {
-                headers.push('Last Name', 'First Name', 'Middle Name');
-            } else {
-                headers.push(th.innerText.trim());
-            }
-        });
-
-        const data = [headers];
-        function splitName(str) {
-            str = str.trim();
-            if (str.includes(',')) {
-                let [last, rest] = str.split(",", 2);
-                let restSplit = rest.trim().split(" ");
-                let first = restSplit[0] || '';
-                let middle = restSplit.slice(1).join(" ");
-                return [last.trim(), first.trim(), middle.trim()];
-            }
-            let parts = str.split(" ");
-            if(parts.length === 2)  return [parts[1].trim(), parts[0].trim(), ""];
-            if(parts.length > 2)    return [parts[parts.length-1], parts[0], parts.slice(1,parts.length-1).join(" ")];
-            return [str, "", ""];
-        }
-
+        // Build data array with filter info as first rows
+        const headers = headerCells.map(th => th.innerText.trim());
+        const data = [
+            ['Students Grades Report', '', '', '', '', ''],
+            ['Generated on', new Date().toLocaleDateString(), '', '', '', ''],
+            ['', '', '', '', '', ''],
+            ['Filter Information', '', '', '', '', ''],
+            [`Grading Period: ${filterInfo.period}`, '', '', '', '', ''],
+            [`Section: ${filterInfo.section}`, '', '', '', '', ''],
+            ['', '', '', '', '', ''],
+            headers // Actual table headers
+        ];
+        
+        // Add student data
         rows.forEach(row => {
-            const cells = Array.from(row.children);
+            const cells = Array.from(row.querySelectorAll('td'));
             let rowData = [];
-            for(let i=0; i<cells.length; i++) {
-                if (i === nameCol) {
-                    let [last, first, middle] = splitName(cells[i].innerText.trim());
-                    rowData.push(last, first, middle);
-                } else if (i === scoreCol) {
-                    const raw = Math.round(Number(cells[i].getAttribute('data-raw')) || 0);
-                    const total = Math.round(Number(cells[i].getAttribute('data-total')) || 0);
-                    rowData.push(`${raw} / ${total}`);
-                } else if (i === percentCol) {
-                    let raw = cells[i].innerText.replace('%','').trim();
-                    let asPerc = parseFloat(raw);
-                    if (asPerc > 1.0) asPerc = asPerc / 100;
-                    rowData.push(asPerc);
-                } else {
-                    rowData.push(cells[i].innerText.trim());
+            
+            cells.forEach((cell, i) => {
+                if (i === 5) {
+                    const badge = cell.querySelector('.badge');
+                    rowData.push(badge ? badge.innerText.trim() : '--');
+                } 
+                else if (i >= 2 && i <= 4) {
+                    const badge = cell.querySelector('.badge');
+                    if (badge && !badge.innerText.includes('--')) {
+                        rowData.push(parseFloat(badge.innerText.replace('%','').trim()));
+                    } else {
+                        rowData.push('--');
+                    }
                 }
-            }
+                else {
+                    rowData.push(cell.innerText.trim());
+                }
+            });
             data.push(rowData);
         });
 
         // Sheet setup
         const ws = XLSX.utils.aoa_to_sheet(data);
 
-        // Column widths as per UI
+        // Column widths
         ws['!cols'] = [
-            { wch: 16 }, // Section
-            { wch: 18 }, // Last Name
-            { wch: 18 }, // First Name
-            { wch: 16 }, // Middle Name
-            { wch: 14 }, // Score
-            { wch: 14 }, // Percentage
-            { wch: 14 }, // Status
-            { wch: 22 }  // Date Taken
+            { wch: 12 }, // Section
+            { wch: 25 }, // Name
+            { wch: 14 }, // Quiz Grade
+            { wch: 14 }, // Exam Grade
+            { wch: 14 }, // Final Grade
+            { wch: 10 }  // GPA
         ];
-
-        //--------------------------------------------
-        // --- STYLING ---
-        //--------------------------------------------
 
         // Common fonts
         function appFont(sz, bold, color) {
@@ -414,71 +441,99 @@ document.addEventListener('DOMContentLoaded', function() {
             border: headerStyle.border
         };
 
-        // Alternate zebra row style
-        const zebraStyle = {
-            ...baseStyle,
-            fill: { fgColor: { rgb: LIGHT_BG } }
+        // Report header style
+        const reportHeaderStyle = {
+            font: { name: 'Poppins', sz:16, bold: true, color:{rgb: MAROON} },
+            alignment: { horizontal: "center" }
         };
 
-        // "Passed"/"Failed" badge style as cell backgrounds
-        const passStatusStyle = {
-            ...baseStyle,
-            fill: { fgColor: { rgb: PASS_BG } },
-            font: { ...baseStyle.font, color: {rgb: PASS_TEXT}, bold: true }
-        };
-        const failStatusStyle = {
-            ...baseStyle,
-            fill: { fgColor: { rgb: FAIL_BG } },
-            font: { ...baseStyle.font, color: {rgb: FAIL_TEXT}, bold: true }
+        // Filter info style
+        const filterStyle = {
+            font: { name: 'Poppins', sz:12, bold: true },
+            alignment: { horizontal: "left" }
         };
 
-        // Percentage style (as 0.00%)
-        const percentStyle = {
-            ...baseStyle,
-            numFmt: '0.00%',
-        };
-
-        // Apply header style
-        for (let c = 0; c < headers.length; ++c) {
-            const addr = XLSX.utils.encode_cell({c, r:0});
-            if (ws[addr]) ws[addr].s = headerStyle;
-        }
-
-        // Data rows
-        for (let r = 1; r < data.length; ++r) {
-            let style = (r % 2 === 0) ? baseStyle : zebraStyle;
-            for (let c = 0; c < headers.length; ++c) {
+        // Apply styles to all cells
+        for (let r = 0; r < data.length; ++r) {
+            for (let c = 0; c < data[r].length; ++c) {
                 const addr = XLSX.utils.encode_cell({c, r});
                 if (!ws[addr]) continue;
-                ws[addr].s = { ...style };
-                // Passed/Failed badge column
-                if (c === statusCol + 2) { // after 3 name cols.
-                    let txt = (ws[addr].v || '').toString().toLowerCase();
-                    if (txt.includes('pass')) ws[addr].s = passStatusStyle;
-                    else if (txt.includes('fail')) ws[addr].s = failStatusStyle;
+                
+                // Report header rows
+                if (r === 0) {
+                    ws[addr].s = reportHeaderStyle;
+                    continue;
                 }
-                // Percentage column
-                if (c === percentCol + 2) {
-                    ws[addr].s = percentStyle;
-                    ws[addr].z = '0.00%';
-                    ws[addr].t = 'n';
+                
+                // Filter info rows
+                if (r >= 3 && r <= 5) {
+                    ws[addr].s = filterStyle;
+                    continue;
+                }
+                
+                // Actual table header (row 7)
+                if (r === 7) {
+                    ws[addr].s = headerStyle;
+                    continue;
+                }
+                
+                // Data rows (starting from row 8)
+                if (r >= 8) {
+                    let style = (r % 2 === 0) ? baseStyle : {...baseStyle, fill: { fgColor: { rgb: LIGHT_BG } }};
+                    
+                    // Apply grade coloring for grade columns (2-4)
+                    if (c >= 2 && c <= 4 && data[r][c] !== '--') {
+                        const grade = parseFloat(data[r][c]);
+                        if (!isNaN(grade)) {
+                            style = grade >= 75 ? 
+                                { ...baseStyle, fill: { fgColor: { rgb: PASS_BG } }, font: { ...baseStyle.font, color: {rgb: PASS_TEXT}, bold: true } } : 
+                                { ...baseStyle, fill: { fgColor: { rgb: FAIL_BG } }, font: { ...baseStyle.font, color: {rgb: FAIL_TEXT}, bold: true } };
+                            ws[addr].s = style;
+                            continue;
+                        }
+                    }
+                    
+                    // Apply GPA coloring (column 5)
+                    if (c === 5 && data[r][c] !== '--') {
+                        const gpa = parseFloat(data[r][c]);
+                        if (!isNaN(gpa)) {
+                            style = gpa <= 3.00 ? 
+                                { ...baseStyle, fill: { fgColor: { rgb: PASS_BG } }, font: { ...baseStyle.font, color: {rgb: PASS_TEXT}, bold: true } } : 
+                                { ...baseStyle, fill: { fgColor: { rgb: FAIL_BG } }, font: { ...baseStyle.font, color: {rgb: FAIL_TEXT}, bold: true } };
+                            ws[addr].s = style;
+                            continue;
+                        }
+                    }
+                    
+                    // Default style
+                    ws[addr].s = style;
                 }
             }
         }
 
+        // Merge cells for report header and filter info
+        ws['!merges'] = [
+            // Report title
+            { s: {r:0, c:0}, e: {r:0, c:5} },
+            // Generated date
+            { s: {r:1, c:0}, e: {r:1, c:1} },
+            // Filter information header
+            { s: {r:3, c:0}, e: {r:3, c:5} }
+        ];
+
         // Workbook and save
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Results");
-        XLSX.writeFile(wb, `${quizTitle}_Results.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "Grades");
+        XLSX.writeFile(wb, `Students_Grades_${filterInfo.period}_${filterInfo.section}_${new Date().toISOString().split('T')[0]}.xlsx`);
     });
 
-
-    // --- Word Export (DOCX) with Beautified Styling ---
+    // --- Word Export (DOCX) with Filter Info ---
     document.getElementById('downloadDocBtn').addEventListener('click', function() {
         if (!window.docx) {
             alert('Word export failed: The docx.js library is not loaded. Please check your network or try again in a few seconds.');
             return;
         }
+        const filterInfo = getFilterInfo();
         const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType, ShadingType, BorderStyle } = window.docx;
 
         // App color references
@@ -496,13 +551,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const APP_FONT = 'Poppins';
         const TABLE_MARGIN = { top: 100, bottom: 100 };
 
-        const quizTitle = document.querySelector('h2.fw-bold').innerText.trim();
-        const table = document.getElementById('resultsTable');
+        const table = document.getElementById('students-grades-table');
         const headerRow = table.querySelector('thead tr');
-        const visibleRows = Array.from(table.querySelectorAll('tbody tr'))
-            .filter(row => row.style.display !== 'none' && !row.querySelector('td[colspan]'));
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
 
-        // Header
+        // Header cell creator
         function createHeaderCell(text) {
             return new TableCell({
                 children: [new Paragraph({
@@ -530,25 +583,39 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Data
-        function createDataCell(text, rowIdx, colIdx, isBadge = false) {
+        // Data cell creator
+        function createDataCell(text, rowIdx, colIdx) {
             // Zebra background
             let bg = (rowIdx % 2 === 1) ? LIGHT_BG : APP_BG;
             let fontColor = MAROON_TEXT, bold = false;
             let shades = undefined;
 
-            // Status badge look
-            if (isBadge) {
-                bold = true;
-                if (text.toLowerCase().includes('pass')) {
-                    fontColor = PASS_TEXT;
-                    shades = { type: ShadingType.CLEAR, fill: PASS_BG };
-                }
-                else if (text.toLowerCase().includes('fail')) {
-                    fontColor = FAIL_TEXT;
-                    shades = { type: ShadingType.CLEAR, fill: FAIL_BG };
+            // Grade columns (2-4) and GPA column (5)
+            if ((colIdx >= 2 && colIdx <= 5) && text !== '--') {
+                const numericValue = parseFloat(text);
+                if (!isNaN(numericValue)) {
+                    bold = true;
+                    // For GPA (col 5)
+                    if (colIdx === 5) {
+                        if (numericValue <= 3.00) {
+                            fontColor = PASS_TEXT;
+                            shades = { type: ShadingType.CLEAR, fill: PASS_BG };
+                        } else {
+                            fontColor = FAIL_TEXT;
+                            shades = { type: ShadingType.CLEAR, fill: FAIL_BG };
+                        }
+                    } 
+                    // For grade columns (2-4)
+                    else if (numericValue >= 75) {
+                        fontColor = PASS_TEXT;
+                        shades = { type: ShadingType.CLEAR, fill: PASS_BG };
+                    } else {
+                        fontColor = FAIL_TEXT;
+                        shades = { type: ShadingType.CLEAR, fill: FAIL_BG };
+                    }
                 }
             }
+            
             return new TableCell({
                 children: [
                     new Paragraph({
@@ -572,23 +639,38 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        const headerCells = Array.from(headerRow.cells).map(cell =>
+        // Build header cells
+        const headerCells = Array.from(headerRow.cells).map(cell => 
             createHeaderCell(cell.innerText.trim())
         );
 
-        const dataRows = visibleRows.map((row, ridx) => {
+        // Build data rows
+        const dataRows = rows.map((row, ridx) => {
+            const cells = Array.from(row.querySelectorAll('td'));
             return new TableRow({
-                children: Array.from(row.cells).map((cell, cidx) => {
-                    // Status col matches app badge style
-                    if (cidx === 4) {
-                        return createDataCell(cell.innerText.trim(), ridx, cidx, true);
+                children: cells.map((cell, cidx) => {
+                    let cellText;
+                    // For GPA column, get the badge text
+                    if (cidx === 5) {
+                        const badge = cell.querySelector('.badge');
+                        cellText = badge ? badge.innerText.trim() : '--';
+                    } 
+                    // For grade columns, get the percentage value
+                    else if (cidx >= 2 && cidx <= 4) {
+                        const badge = cell.querySelector('.badge');
+                        cellText = (badge && !badge.innerText.includes('--')) ? 
+                            badge.innerText.replace('%','').trim() : '--';
                     }
-                    // All else: app font, maroon, zebra
-                    return createDataCell(cell.innerText.trim(), ridx, cidx, false);
+                    // For regular columns
+                    else {
+                        cellText = cell.innerText.trim();
+                    }
+                    return createDataCell(cellText, ridx, cidx);
                 })
             });
         });
 
+        // Create document
         const docTable = new Table({
             rows: [new TableRow({ children: headerCells }), ...dataRows],
             width: { size: 100, type: 'pct' },
@@ -600,22 +682,50 @@ document.addEventListener('DOMContentLoaded', function() {
             sections: [{
                 children: [
                     new Paragraph({
-                        text: `${quizTitle} - Quiz Results`,
+                        text: "Students Grades Report",
                         heading: HeadingLevel.HEADING_1,
                         alignment: AlignmentType.CENTER,
                         spacing: { after: 100 }
                     }),
-                    new Paragraph({ text: "" }),
+                    new Paragraph({ 
+                        text: `Generated on ${new Date().toLocaleDateString()}`,
+                        alignment: AlignmentType.CENTER,
+                        spacing: { after: 100 }
+                    }),
+                    new Paragraph({
+                        text: "Filter Information",
+                        heading: HeadingLevel.HEADING_3,
+                        spacing: { after: 100 }
+                    }),
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: `Grading Period: ${filterInfo.period}`,
+                                bold: true
+                            })
+                        ],
+                        spacing: { after: 50 }
+                    }),
+                    new Paragraph({
+                        children: [
+                            new TextRun({
+                                text: `Section: ${filterInfo.section}`,
+                                bold: true
+                            })
+                        ],
+                        spacing: { after: 200 }
+                    }),
                     docTable
                 ]
             }]
         });
 
+        // Download the document
         Packer.toBlob(doc).then(blob => {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${quizTitle}_Results.docx`;
+            a.download = `Students_Grades_${filterInfo.period}_${filterInfo.section}_${new Date().toISOString().split('T')[0]}.docx`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

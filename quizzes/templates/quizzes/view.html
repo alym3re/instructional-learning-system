@@ -295,7 +295,7 @@
                                     </thead>
                                     <tbody>
                                         {% for attempt in user_attempts %}
-                                        {% with section=attempt.user.section %}
+                                        {% with section=attempt.user.section|default_if_none:'' %}
                                         <tr data-section="{{ section }}">
                                             <td>
                                                 {% with label=None %}
