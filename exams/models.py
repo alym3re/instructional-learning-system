@@ -27,7 +27,7 @@ class Exam(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     time_limit = models.PositiveIntegerField(help_text="Time limit in minutes (0 for no limit)", default=0)
     passing_score = models.PositiveIntegerField(help_text="Percentage required to pass", default=70)
-    locked = models.BooleanField(default=True, help_text="Lock this exam for non-admin users")
+    locked = models.BooleanField(default=False, help_text="Lock this exam for non-admin users")
     shuffle_questions = models.BooleanField(default=False)
     show_correct_answers = models.BooleanField(help_text="Show correct answers after submission", default=True)
     is_published = models.BooleanField(default=False, help_text="Mark this exam as published (visible to students and locked for editing).")
@@ -52,12 +52,12 @@ class Exam(models.Model):
         # Enforce one exam per grading period
         if not self.pk and Exam.objects.filter(grading_period=self.grading_period).exists():
             raise ValueError('There can only be one exam per grading period.')
-        
+
         # Prevent publishing with no questions
         if self.is_published and not hasattr(self, '_skip_validation'):
             if self.questions.count() == 0:
                 raise ValueError("Cannot publish an exam with no questions")
-                
+
         if not self.slug:
             original_slug = slugify(self.title)
             slug = original_slug
@@ -74,7 +74,7 @@ class Exam(models.Model):
 
     def question_count(self):
         return self.questions.count()
-        
+
     def get_ordered_questions(self):
         """
         Returns questions grouped by type in this order:
@@ -102,7 +102,7 @@ class ExamQuestion(models.Model):
     question_type = models.CharField(max_length=20, choices=EXAM_QUESTION_TYPE_CHOICES, default='multiple_choice')
     explanation = models.TextField(blank=True)
     points = models.PositiveIntegerField(default=1)
-    
+
     class Meta:
         pass
 
@@ -112,16 +112,16 @@ class ExamQuestion(models.Model):
 
     def is_multiple_choice(self):
         return self.question_type == 'multiple_choice'
-    
+
     def is_true_false(self):
         return self.question_type == 'true_false'
-    
+
     def is_identification(self):
         return self.question_type == 'identification'
 
     def is_fill_in_the_blanks(self):
         return self.question_type == 'fill_in_the_blanks'
-        
+
     def blanks_count(self):
         """
         Returns the number of blanks for fill-in-the-blanks questions,
@@ -139,7 +139,7 @@ class ExamQuestion(models.Model):
         if self.is_fill_in_the_blanks():
             return self.points * self.blanks_count()
         return self.points
-        
+
 class ExamAnswer(models.Model):
     question = models.ForeignKey(ExamQuestion, on_delete=models.CASCADE, related_name='answers')
     text = models.CharField(max_length=500)
@@ -171,7 +171,7 @@ class ExamAttempt(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.exam.title}"
-        
+
     def save(self, *args, **kwargs):
         # Auto-set grading_period from the related exam
         if not self.grading_period and self.exam_id:
@@ -211,7 +211,7 @@ class ExamAttempt(models.Model):
         """
         gained_pts = 0
         total_pts = 0
-        
+
         for q in self.exam.questions.all():
             if q.is_fill_in_the_blanks():
                 # Per-blank calculation
@@ -226,7 +226,7 @@ class ExamAttempt(models.Model):
                 total_pts += q.points
                 if self.user_answers.filter(question=q, is_correct=True).exists():
                     gained_pts += q.points
-                    
+
         self.raw_points = gained_pts
         self.total_points = total_pts
         self.score = (gained_pts / total_pts) * 100 if total_pts else 0
@@ -244,7 +244,7 @@ class ExamUserAnswer(models.Model):
 
     class Meta:
         unique_together = ('attempt', 'question')
-        
+
     def check_answer(self):
         question = self.question
         if question.is_multiple_choice() or question.is_true_false():
