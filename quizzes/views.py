@@ -638,9 +638,20 @@ def take_quiz(request, quiz_id):
     # Calculate total question count for numbering
     total_questions = sum(len(group['questions']) for group in questions_by_type)
     
+    # Create a flat list of questions for global numbering
+    flat_questions = []
+    for group in questions_by_type:
+        for question in group['questions']:
+            flat_questions.append({
+                'type_verbose': group['type_verbose'],
+                'question_type': group['type'],
+                'question': question,
+            })
+    
     return render(request, 'quizzes/take.html', {
         'quiz': quiz,
         'questions_by_type': questions_by_type,
+        'flat_questions': flat_questions,        # For globally-incremented numbering
         'total_questions': total_questions,
         'attempt': user_attempt,
         'time_limit': quiz.time_limit * 60 if quiz.time_limit > 0 else None

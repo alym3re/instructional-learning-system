@@ -163,61 +163,60 @@
     <form method="post" id="quiz-form" autocomplete="off">
         {% csrf_token %}
         
-        {# Initialize question counter #}
-        {% with counter=1 %}
-        
-        {% for group in questions_by_type %}
-            <h3 class="question-type-header">{{ group.type_verbose }}</h3>
+        {% with None as prev_type_verbose %}
+        {% for q in flat_questions %}
+            {% if forloop.first or prev_type_verbose != q.type_verbose %}
+                <h3 class="question-type-header">{{ q.type_verbose }}</h3>
+            {% endif %}
             
-            {% for question in group.questions %}
             <div class="card mb-3 question-card">
                 <div class="card-header">
-                    <h5>Question {{ counter }}</h5>
+                    <h5>Question {{ forloop.counter }}</h5>
                     <span class="badge bg-info">
-                        {{ question.get_question_type_display }}
+                        {{ q.question.get_question_type_display }}
                     </span>
                     <small class="text-muted">
-                        {% if question.question_type == "fill_in_the_blanks" %}
-                            {{ question.answers.all|length }} blank{{ question.answers.all|length|pluralize }}
-                            × {{ question.points }} = {{ question.answers.all|length|multiply:question.points }}
-                            pt{{ question.answers.all|length|multiply:question.points|pluralize }}
+                        {% if q.question.question_type == "fill_in_the_blanks" %}
+                            {{ q.question.answers.all|length }} blank{{ q.question.answers.all|length|pluralize }}
+                            × {{ q.question.points }} = {{ q.question.answers.all|length|multiply:q.question.points }}
+                            pt{{ q.question.answers.all|length|multiply:q.question.points|pluralize }}
                         {% else %}
-                            {{ question.points }} point{{ question.points|pluralize }}
+                            {{ q.question.points }} point{{ q.question.points|pluralize }}
                         {% endif %}
                     </small>
                 </div>
                 <div class="card-body">
                     <p class="card-text"
-                       {% if question.question_type == "fill_in_the_blanks" %}
+                       {% if q.question.question_type == "fill_in_the_blanks" %}
                             data-fill-blanks="1"
-                            data-qid="{{ question.id }}"
+                            data-qid="{{ q.question.id }}"
                        {% endif %}
                     >
-                        {{ question.text|safe }}
+                        {{ q.question.text|safe }}
                     </p>
                     <div class="answers">
-                        {% if question.question_type == "multiple_choice" %}
+                        {% if q.question.question_type == "multiple_choice" %}
                             <div class="choice-btn-group">
-                            {% for answer in question.answers.all %}
+                            {% for answer in q.question.answers.all %}
                                 <button type="button"
                                    class="btn btn-theme-maroon-outline"
-                                   data-qid="{{ question.id }}"
+                                   data-qid="{{ q.question.id }}"
                                    data-ansid="{{ answer.id }}"
                                    aria-pressed="false"
                                    tabindex="0">
                                     {{ answer.text|title }}
                                 </button>
-                                <input type="radio" name="question_{{ question.id }}"
-                                       value="{{ answer.id }}" id="answer_{{ question.id }}_{{ answer.id }}"
+                                <input type="radio" name="question_{{ q.question.id }}"
+                                       value="{{ answer.id }}" id="answer_{{ q.question.id }}_{{ answer.id }}"
                                        style="display:none" required>
                             {% endfor %}
                             </div>
-                        {% elif question.question_type == "multiple_answer" %}
+                        {% elif q.question.question_type == "multiple_answer" %}
                             <div class="choice-btn-group">
-                            {% for answer in question.answers.all %}
+                            {% for answer in q.question.answers.all %}
                                 <button type="button"
                                    class="btn btn-theme-maroon-outline"
-                                   data-qid="{{ question.id }}"
+                                   data-qid="{{ q.question.id }}"
                                    data-ansid="{{ answer.id }}"
                                    aria-pressed="false"
                                    tabindex="0"
@@ -225,53 +224,48 @@
                                 >
                                     {{ answer.text|title }}
                                 </button>
-                                <input type="checkbox" name="question_{{ question.id }}"
+                                <input type="checkbox" name="question_{{ q.question.id }}"
                                        value="{{ answer.id }}"
-                                       id="answer_{{ question.id }}_{{ answer.id }}"
+                                       id="answer_{{ q.question.id }}_{{ answer.id }}"
                                        style="display:none" >
                             {% endfor %}
                             </div>
-                        {% elif question.question_type == "true_false" %}
+                        {% elif q.question.question_type == "true_false" %}
                             <div class="choice-btn-row">
-                            {% for answer in question.answers.all %}
+                            {% for answer in q.question.answers.all %}
                                 <div class="choice-btn-col-6">
                                     <button type="button"
                                        class="btn btn-theme-maroon-outline"
-                                       data-qid="{{ question.id }}"
+                                       data-qid="{{ q.question.id }}"
                                        data-ansid="{{ answer.id }}"
                                        aria-pressed="false"
                                        tabindex="0">
                                         {{ answer.text|title }}
                                     </button>
-                                    <input type="radio" name="question_{{ question.id }}"
+                                    <input type="radio" name="question_{{ q.question.id }}"
                                            value="{{ answer.id }}"
-                                           id="answer_{{ question.id }}_{{ answer.id }}"
+                                           id="answer_{{ q.question.id }}_{{ answer.id }}"
                                            style="display:none" required>
                                 </div>
                             {% endfor %}
                             </div>
-                        {% elif question.question_type == "identification" %}
-                            <label class="identification-label" for="ident_{{ question.id }}">
+                        {% elif q.question.question_type == "identification" %}
+                            <label class="identification-label" for="ident_{{ q.question.id }}">
                                 Type your answer below:
                             </label>
                             <input type="text"
                                    class="input-identification"
-                                   id="ident_{{ question.id }}"
-                                   name="question_{{ question.id }}_text"
+                                   id="ident_{{ q.question.id }}"
+                                   name="question_{{ q.question.id }}_text"
                                    placeholder="Your answer here..."
                                    required autocomplete="off">
                         {% endif %}
                     </div>
                 </div>
             </div>
-            
-            {# Increment counter #}
-            {% with counter=counter|add:1 %}
+            {% with q.type_verbose as prev_type_verbose %}
             {% endwith %}
-            
-            {% endfor %}
         {% endfor %}
-        
         {% endwith %}
         
         <div class="d-flex justify-content-between mb-3">
