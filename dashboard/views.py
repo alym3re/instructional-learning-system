@@ -575,7 +575,7 @@ def admin_dashboard(request):
         has_student_model = True
     except ImportError:
         has_student_model = False
-            
+    
     for student in all_students:
         # Try to get section information if available
         section_name = None
@@ -583,7 +583,6 @@ def admin_dashboard(request):
             try:
                 student_profile = Student.objects.get(user=student)
                 section_name = getattr(student_profile, "section", None)
-                # Section can be a model, a callable, or a direct string!
                 if callable(section_name):
                     section_name = section_name()
                 elif hasattr(section_name, "name"):
@@ -596,28 +595,27 @@ def admin_dashboard(request):
                 section_name = "N/A"
         elif hasattr(student, "section"):
             section_name = getattr(student, "section", "N/A")
-            
-        # Build filters for grading period
+        
+        # Initialize averages to None to avoid unbound errors
+        quiz_avg = None
+        exam_avg = None
+        
         quiz_filter = dict(user=student, completed=True, quiz__is_archived=False)
         exam_filter = dict(user=student, completed=True)
         if selected_period and selected_period != 'overall':
             quiz_filter['grading_period'] = selected_period
             exam_filter['grading_period'] = selected_period
-            
+        
         # Quiz average (out of 100) for the selected period
         student_quiz_attempts = QuizAttempt.objects.filter(**quiz_filter)
         if student_quiz_attempts.exists():
             quiz_avg = student_quiz_attempts.aggregate(avg=Avg('score'))['avg']
-        else:
-            quiz_avg = None  # No attempts exist
-
+        
         # Exam average (out of 100) for the selected period
         student_exam_attempts = ExamAttempt.objects.filter(**exam_filter)
         if student_exam_attempts.exists():
             exam_avg = student_exam_attempts.aggregate(avg=Avg('score'))['avg']
-        else:
-            exam_avg = None  # No attempts exist
-                
+        
         # Calculate final grade only if both components exist
         if quiz_avg is not None and exam_avg is not None:
             final_grade = quiz_avg * 0.4 + exam_avg * 0.6  # Fixed weights (40% quiz, 60% exam)
@@ -631,6 +629,109 @@ def admin_dashboard(request):
             'exam_grade': exam_avg,
             'grade': final_grade,
         })
+    
+    # --- SORTING FOR STUDENTS GRADES TABLE ---
+    sort = request.GET.get('sort')
+    dir = request.GET.get('dir', 'asc')
+    if sort:
+        reverse = (dir == 'desc')
+        def sort_key(x):
+            v = x.get(sort)
+            # For None values, sort them last
+            if v is None:
+                return float('-inf') if reverse else float('inf')
+            return v
+        students_grades.sort(key=sort_key, reverse=reverse)
+
+    # Exam Grades Card logic
+    selected_exam_period = request.GET.get('exam_grading_period', 'overall')
+    selected_exam_section = request.GET.get('exam_section', 'all')
+    exam_search_query = request.GET.get('exam_search', '').strip()
+
+    exam_students_qs = User.objects.filter(is_staff=False)
+    if selected_exam_section != 'all':
+        try:
+            from students.models import Student
+            student_ids = Student.objects.filter(section=selected_exam_section).values_list('user_id', flat=True)
+            exam_students_qs = exam_students_qs.filter(id__in=student_ids)
+        except Exception:
+            if hasattr(User, 'section'):
+                exam_students_qs = exam_students_qs.filter(section=selected_exam_section)
+    if exam_search_query:
+        exam_students_qs = exam_students_qs.filter(
+            Q(first_name__icontains=exam_search_query) |
+            Q(last_name__icontains=exam_search_query) |
+            Q(username__icontains=exam_search_query)
+        )
+    exam_grades = []
+    try:
+        from students.models import Student
+        has_student_model = True
+    except ImportError:
+        has_student_model = False
+    for student in exam_students_qs:
+        # Section info
+        section_name = None
+        if has_student_model:
+            try:
+                student_profile = Student.objects.get(user=student)
+                section_name = getattr(student_profile, "section", None)
+                if callable(section_name):
+                    section_name = section_name()
+                elif hasattr(section_name, "name"):
+                    section_name = section_name.name
+                elif isinstance(section_name, str):
+                    section_name = section_name
+                else:
+                    section_name = str(section_name or "N/A")
+            except Student.DoesNotExist:
+                section_name = "N/A"
+        elif hasattr(student, "section"):
+            section_name = getattr(student, "section", "N/A")
+
+        # Gather exam scores for each grading period
+        period_scores = {}
+        total_score = 0
+        total_max = 0
+        for period_value, period_label in GRADING_PERIODS:
+            exam_attempt = ExamAttempt.objects.filter(
+                user=student, completed=True, grading_period=period_value
+            ).order_by('-id').first()
+            if exam_attempt:
+                raw_points = getattr(exam_attempt, 'raw_points', None)
+                max_score = getattr(exam_attempt, 'total_points', 100)
+                score_val = raw_points if raw_points is not None else None
+                max_val = max_score if max_score is not None else 100
+                period_scores[period_value] = score_val
+                if score_val is not None:
+                    total_score += score_val
+                    total_max += max_val
+            else:
+                period_scores[period_value] = None
+
+        exam_percent = round((total_score / total_max) * 100, 2) if total_max > 0 else None
+
+        exam_grades.append({
+            'section': section_name or "N/A",
+            'full_name': f"{student.first_name} {student.last_name}".strip() or student.username,
+            'prelim_score': period_scores.get('prelim'),
+            'midterm_score': period_scores.get('midterm'),
+            'prefinal_score': period_scores.get('prefinal'),
+            'final_score': period_scores.get('final'),
+            'exam_percent': exam_percent,
+        })
+
+    # --- SORTING FOR EXAM GRADES TABLE ---
+    exam_sort = request.GET.get('sort')
+    exam_dir = request.GET.get('dir', 'asc')
+    if exam_sort:
+        reverse = (exam_dir == 'desc')
+        def exam_sort_key(x):
+            val = x.get(exam_sort)
+            if val is None:
+                return float('-inf') if reverse else float('inf')
+            return val
+        exam_grades.sort(key=exam_sort_key, reverse=reverse)
 
     context = {
         'total_users': total_users,
@@ -650,8 +751,31 @@ def admin_dashboard(request):
         'period_stats': period_stats,
         'overall_rankings': overall_rankings,
         'students_grades': students_grades,
+        'exam_grades': exam_grades,
+        'sort': sort,
+        'dir': dir,
+        'exam_sort': exam_sort,
+        'exam_dir': exam_dir,
+        'selected_exam_period': selected_exam_period,
+        'selected_exam_section': selected_exam_section,
+        'exam_search_query': exam_search_query,
     }
-    return render(request, 'dashboard/admin.html', context)
+
+    from django.template.loader import render_to_string
+    # AJAX for Students Grades table
+    if request.GET.get('ajax') == '1' and request.GET.get('table') == 'students_grades':
+        html = render_to_string('dashboard/_students_grades_table_body.html', context, request=request)
+        return HttpResponse(html)
+    # AJAX for Exam Grades table
+    elif request.GET.get('ajax') == '1' and request.GET.get('table') == 'exam_grades':
+        html = render_to_string('dashboard/_exam_grades_table_body.html', context, request=request)
+        return HttpResponse(html)
+    # Fallback: any AJAX
+    elif request.GET.get('ajax') == '1' or request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        html = render_to_string('dashboard/_students_grades_table_body.html', context, request=request)
+        return HttpResponse(html)
+    else:
+        return render(request, 'dashboard/admin.html', context)
 
 
 

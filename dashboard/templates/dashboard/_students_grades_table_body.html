@@ -1,0 +1,66 @@
+{% if students_grades %}
+    {% for stu in students_grades %}
+    <tr class="text-center align-middle">
+        <td class="fw-medium">{{ stu.section }}</td>
+        <td class="fw-semibold text-start" style="letter-spacing:0.5px;">{{ stu.full_name }}</td>
+        <td>
+            {% if stu.quiz_grade is not None %}
+                <span class="badge {% if stu.quiz_grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
+                    {{ stu.quiz_grade|floatformat:2 }}%
+                </span>
+            {% else %}
+                <span class="badge text-dark">--</span>
+            {% endif %}
+        </td>
+        <td>
+            {% if stu.exam_grade is not None %}
+                <span class="badge {% if stu.exam_grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
+                    {{ stu.exam_grade|floatformat:2 }}%
+                </span>
+            {% else %}
+                <span class="badge text-dark">--</span>
+            {% endif %}
+        </td>
+        <td class="fw-bold">
+            {% if stu.grade is not None %}
+                <span class="badge {% if stu.grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
+                    {{ stu.grade|floatformat:2 }}%
+                </span>
+            {% else %}
+                <span class="badge text-dark">--</span>
+            {% endif %}
+        </td>
+        <td class="fw-bold">
+            {% if stu.grade is not None %}
+                {% if stu.grade >= 99 %}
+                    <span class="badge bg-success text-light">1.00</span>
+                {% elif stu.grade >= 96 %}
+                    <span class="badge bg-success text-light">1.25</span>
+                {% elif stu.grade >= 93 %}
+                    <span class="badge bg-success text-light">1.50</span>
+                {% elif stu.grade >= 90 %}
+                    <span class="badge bg-success text-light">1.75</span>
+                {% elif stu.grade >= 87 %}
+                    <span class="badge bg-success text-light">2.00</span>
+                {% elif stu.grade >= 84 %}
+                    <span class="badge bg-success text-light">2.25</span>
+                {% elif stu.grade >= 81 %}
+                    <span class="badge bg-success text-light">2.50</span>
+                {% elif stu.grade >= 78 %}
+                    <span class="badge bg-success text-light">2.75</span>
+                {% elif stu.grade >= 75 %}
+                    <span class="badge bg-success text-light">3.00</span>
+                {% else %}
+                    <span class="badge bg-danger text-light">5.00</span>
+                {% endif %}
+            {% else %}
+                <span class="badge text-dark">--</span>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+{% else %}
+    <tr>
+        <td colspan="6" class="text-center text-muted">No grades data available for this selection.</td>
+    </tr>
+{% endif %}
