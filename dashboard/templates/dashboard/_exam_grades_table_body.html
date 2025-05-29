@@ -4,55 +4,27 @@
         <td class="fw-medium">{{ exam.section }}</td>
         <td class="fw-semibold text-start" style="letter-spacing:0.5px;">{{ exam.full_name }}</td>
         <td>
-            {% if exam.prelim_score is not None %}
-                <span class="badge text-dark">
-                    {{ exam.prelim_score|floatformat:0 }}
-                </span>
+            <span class="badge text-dark">{{ exam.score_display }}</span>
+        </td>
+        <td>
+            {% if exam.percent_score is not None %}
+                <span class="badge text-dark">{{ exam.percent_score|floatformat:2 }}%</span>
             {% else %}
                 <span class="badge text-dark">--</span>
             {% endif %}
         </td>
         <td>
-            {% if exam.midterm_score is not None %}
-                <span class="badge text-dark">
-                    {{ exam.midterm_score|floatformat:0 }}
-                </span>
+            {% if exam.weighted_score is not None %}
+                <span class="badge text-dark">{{ exam.weighted_score|floatformat:2 }}%</span>
             {% else %}
                 <span class="badge text-dark">--</span>
             {% endif %}
         </td>
         <td>
-            {% if exam.prefinal_score is not None %}
-                <span class="badge text-dark">
-                    {{ exam.prefinal_score|floatformat:0 }}
-                </span>
-            {% else %}
-                <span class="badge text-dark">--</span>
-            {% endif %}
-        </td>
-        <td>
-            {% if exam.final_score is not None %}
-                <span class="badge text-dark">
-                    {{ exam.final_score|floatformat:0 }}
-                </span>
-            {% else %}
-                <span class="badge text-dark">--</span>
-            {% endif %}
-        </td>
-        <td>
-            {% if exam.exam_percent is not None %}
-                <span class="badge text-dark">
-                    {{ exam.exam_percent|floatformat:2 }}%
-                </span>
-            {% else %}
-                <span class="badge text-dark">--</span>
-            {% endif %}
-        </td>
-        <td>
-            {% if exam.exam_percent is not None %}
-                <span class="badge {% if exam.exam_percent >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
-                    {% if exam.exam_percent >= 75 %}Passed{% else %}Failed{% endif %}
-                </span>
+            {% if exam.remarks == 'Passed' %}
+                <span class="badge bg-success text-light">Passed</span>
+            {% elif exam.remarks == 'Failed' %}
+                <span class="badge bg-danger text-light">Failed</span>
             {% else %}
                 <span class="badge text-dark">--</span>
             {% endif %}
@@ -61,6 +33,6 @@
     {% endfor %}
 {% else %}
     <tr>
-        <td colspan="8" class="text-center text-muted">No exam grades data available for this selection.</td>
+        <td colspan="6" class="text-center text-muted">No exam grades data available for this selection.</td>
     </tr>
 {% endif %}

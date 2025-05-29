@@ -7,7 +7,7 @@ from django.contrib import messages
 from lessons.models import Lesson, LessonProgress, GRADING_PERIOD_CHOICES as LESSON_GRADING_PERIOD_CHOICES
 from quizzes.models import Quiz, QuizAttempt
 from exams.models import Exam, ExamAttempt
-from .models import StudentProgress, ActivityLog
+from .models import StudentProgress, ActivityLog, Attendance
 from django.db.models import Q, Sum, Avg, Count
 from django.utils import timezone
 from datetime import timedelta
@@ -552,7 +552,7 @@ def admin_dashboard(request):
             stu_exam_points = exam_qs.aggregate(s=Sum('score'))['s'] or 0
         student_totals.append({
             'user_id': student.id,
-            'full_name': f"{student.first_name} {student.last_name}".strip() or student.username,
+            'full_name': f"{student.last_name}, {student.first_name}".strip() or student.username,
             'total_points': (stu_quiz_points or 0) + (stu_exam_points or 0),
             'quiz_points': stu_quiz_points or 0,
             'exam_points': stu_exam_points or 0,
@@ -624,7 +624,7 @@ def admin_dashboard(request):
         
         students_grades.append({
             'section': section_name or "N/A",
-            'full_name': f"{student.first_name} {student.last_name}".strip() or student.username,
+            'full_name': f"{student.last_name}, {student.first_name}".strip() or student.username,
             'quiz_grade': quiz_avg,
             'exam_grade': exam_avg,
             'grade': final_grade,
@@ -643,8 +643,144 @@ def admin_dashboard(request):
             return v
         students_grades.sort(key=sort_key, reverse=reverse)
 
+    # Written Works (20%) Card logic
+    selected_ww_period = request.GET.get('ww_grading_period', 'prelim')
+    selected_ww_section = request.GET.get('ww_section', 'all')
+    ww_search_query = request.GET.get('ww_search', '').strip()
+
+    ww_students_qs = User.objects.filter(is_staff=False)
+    if selected_ww_section != 'all':
+        try:
+            from students.models import Student
+            student_ids = Student.objects.filter(section=selected_ww_section).values_list('user_id', flat=True)
+            ww_students_qs = ww_students_qs.filter(id__in=student_ids)
+        except Exception:
+            if hasattr(User, 'section'):
+                ww_students_qs = ww_students_qs.filter(section=selected_ww_section)
+    if ww_search_query:
+        ww_students_qs = ww_students_qs.filter(
+            Q(first_name__icontains=ww_search_query) |
+            Q(last_name__icontains=ww_search_query) |
+            Q(username__icontains=ww_search_query)
+        )
+
+    # Get all quizzes for the selected grading period
+    written_works_quizzes = list(Quiz.objects.filter(grading_period=selected_ww_period, is_archived=False).order_by('id'))
+
+    written_works_grades = []
+    try:
+        from students.models import Student
+        has_student_model = True
+    except ImportError:
+        has_student_model = False
+    for student in ww_students_qs:
+        # Section info
+        section_name = None
+        if has_student_model:
+            try:
+                student_profile = Student.objects.get(user=student)
+                section_name = getattr(student_profile, "section", None)
+                if callable(section_name):
+                    section_name = section_name()
+                elif hasattr(section_name, "name"):
+                    section_name = section_name.name
+                elif isinstance(section_name, str):
+                    section_name = section_name
+                else:
+                    section_name = str(section_name or "N/A")
+            except Student.DoesNotExist:
+                section_name = "N/A"
+        elif hasattr(student, "section"):
+            section_name = getattr(student, "section", "N/A")
+
+        quiz_scores = []
+        quiz_score_map = {}
+        student_has_attempt = False
+        for quiz in written_works_quizzes:
+            attempt = QuizAttempt.objects.filter(user=student, quiz=quiz, completed=True).order_by('-score').first()
+            if attempt:
+                student_has_attempt = True
+                raw_points = getattr(attempt, 'raw_points', None)
+                total_points = getattr(attempt, 'total_points', None)
+                if raw_points is None:
+                    raw_points = attempt.score
+                if total_points is None:
+                    total_points = getattr(quiz, 'max_score', 100)
+                percent = round((raw_points / total_points) * 100, 2) if total_points else 0.0
+                remarks = "Passed" if percent is not None and percent >= 75 else "Failed"
+                quiz_scores.append(percent)
+                quiz_score_map[quiz.id] = {
+                    'raw_points': raw_points,
+                    'total_points': total_points,
+                    'percent': percent,
+                    'remarks': remarks,
+                }
+            else:
+                # No attempt: treat as 0%
+                quiz_scores.append(0.0)
+                quiz_score_map[quiz.id] = {
+                    'raw_points': None,
+                    'total_points': None,
+                    'percent': 0.0,
+                    'remarks': "Failed",
+                }
+
+        # Percentage score is the average of all quiz percentages (including 0 for missing)
+        if written_works_quizzes:
+            if student_has_attempt:
+                percentage_score = round(sum(quiz_scores) / len(written_works_quizzes), 2)
+                weighted_score = round(percentage_score * 0.2, 2)
+            else:
+                percentage_score = None
+                weighted_score = None
+        else:
+            percentage_score = None
+            weighted_score = None
+        # Compute overall remarks:
+        # - '--' if no quizzes in period
+        # - '--' if student has no attempts for any quiz in period
+        # - 'Passed' if all quizzes are Passed
+        # - 'Failed' otherwise
+        if not written_works_quizzes:
+            overall_remarks = '--'
+        elif not student_has_attempt:
+            overall_remarks = '--'
+        else:
+            all_passed = all(q['remarks'] == 'Passed' for q in quiz_score_map.values() if q is not None)
+            overall_remarks = 'Passed' if all_passed else 'Failed'
+        written_works_grades.append({
+            'section': section_name or "N/A",
+            'full_name': f"{student.last_name}, {student.first_name}".strip() or student.username,
+            'quiz_scores': quiz_score_map,
+            'percentage_score': percentage_score,
+            'weighted_score': weighted_score,
+            'overall_remarks': overall_remarks,
+        })
+
+    # --- SORTING FOR WRITTEN WORKS TABLE ---
+    ww_sort = request.GET.get('sort')
+    ww_dir = request.GET.get('dir', 'asc')
+    if ww_sort:
+        reverse = (ww_dir == 'desc')
+        def ww_sort_key(x):
+            # Quiz columns: quiz_{id}
+            if ww_sort.startswith('quiz_'):
+                quiz_id = None
+                try:
+                    quiz_id = int(ww_sort.split('_')[1])
+                except Exception:
+                    return 0
+                quiz_score = x['quiz_scores'].get(quiz_id, {}).get('percent', 0)
+                return quiz_score if quiz_score is not None else (float('-inf') if reverse else float('inf'))
+            # Other columns
+            v = x.get(ww_sort)
+            if v is None:
+                return float('-inf') if reverse else float('inf')
+            return v
+        written_works_grades.sort(key=ww_sort_key, reverse=reverse)
+
     # Exam Grades Card logic
-    selected_exam_period = request.GET.get('exam_grading_period', 'overall')
+    selected_exam_period = request.GET.get('exam_grading_period', 'prelim')
     selected_exam_section = request.GET.get('exam_section', 'all')
     exam_search_query = request.GET.get('exam_search', '').strip()
 
@@ -689,36 +825,55 @@ def admin_dashboard(request):
         elif hasattr(student, "section"):
             section_name = getattr(student, "section", "N/A")
 
-        # Gather exam scores for each grading period
-        period_scores = {}
-        total_score = 0
-        total_max = 0
-        for period_value, period_label in GRADING_PERIODS:
-            exam_attempt = ExamAttempt.objects.filter(
-                user=student, completed=True, grading_period=period_value
-            ).order_by('-id').first()
-            if exam_attempt:
-                raw_points = getattr(exam_attempt, 'raw_points', None)
-                max_score = getattr(exam_attempt, 'total_points', 100)
-                score_val = raw_points if raw_points is not None else None
-                max_val = max_score if max_score is not None else 100
-                period_scores[period_value] = score_val
-                if score_val is not None:
-                    total_score += score_val
-                    total_max += max_val
-            else:
-                period_scores[period_value] = None
+        # Only consider the selected grading period
+        grading_period = selected_exam_period
+        if grading_period == 'overall':
+            grading_period = None
 
-        exam_percent = round((total_score / total_max) * 100, 2) if total_max > 0 else None
+        # Get latest ExamAttempt for this student and grading period
+        exam_attempt = None
+        if grading_period:
+            exam_attempt = ExamAttempt.objects.filter(
+                user=student, completed=True, grading_period=grading_period
+            ).order_by('-id').first()
+        else:
+            exam_attempt = ExamAttempt.objects.filter(
+                user=student, completed=True
+            ).order_by('-id').first()
+
+        if exam_attempt:
+            user_score = getattr(exam_attempt, 'raw_points', None)
+            total_items = getattr(exam_attempt, 'total_points', None)
+            if user_score is None:
+                user_score = getattr(exam_attempt, 'score', None)
+            if total_items is None:
+                total_items = 100
+            percent_score = round((user_score / total_items) * 100, 2) if user_score is not None and total_items else None
+            weighted_score = round(percent_score * 0.3, 2) if percent_score is not None else None
+            passed = getattr(exam_attempt, 'passed', None)
+            remarks = None
+            if passed is not None:
+                remarks = 'Passed' if passed else 'Failed'
+            elif percent_score is not None:
+                remarks = 'Passed' if percent_score >= 75 else 'Failed'
+            else:
+                remarks = '--'
+            score_display = f"{int(user_score) if user_score is not None else '--'}/{int(total_items) if total_items is not None else '--'}"
+        else:
+            user_score = None
+            total_items = None
+            percent_score = None
+            weighted_score = None
+            remarks = '--'
+            score_display = '--/--'
 
         exam_grades.append({
             'section': section_name or "N/A",
-            'full_name': f"{student.first_name} {student.last_name}".strip() or student.username,
-            'prelim_score': period_scores.get('prelim'),
-            'midterm_score': period_scores.get('midterm'),
-            'prefinal_score': period_scores.get('prefinal'),
-            'final_score': period_scores.get('final'),
-            'exam_percent': exam_percent,
+            'full_name': f"{student.last_name}, {student.first_name}".strip() or student.username,
+            'score_display': score_display,
+            'percent_score': percent_score,
+            'weighted_score': weighted_score,
+            'remarks': remarks,
         })
 
     # --- SORTING FOR EXAM GRADES TABLE ---
@@ -732,6 +887,85 @@ def admin_dashboard(request):
                 return float('-inf') if reverse else float('inf')
             return val
         exam_grades.sort(key=exam_sort_key, reverse=reverse)
+
+    # --- PERFORMANCE TASKS TABLE LOGIC ---
+    selected_pt_period = request.GET.get('pt_grading_period', 'prelim')
+    selected_pt_section = request.GET.get('pt_section', 'all')
+    pt_search_query = request.GET.get('pt_search', '').strip()
+
+    pt_students_qs = User.objects.filter(is_staff=False)
+    if selected_pt_section != 'all':
+        try:
+            from students.models import Student
+            student_ids = Student.objects.filter(section=selected_pt_section).values_list('user_id', flat=True)
+            pt_students_qs = pt_students_qs.filter(id__in=student_ids)
+        except Exception:
+            if hasattr(User, 'section'):
+                pt_students_qs = pt_students_qs.filter(section=selected_pt_section)
+    if pt_search_query:
+        pt_students_qs = pt_students_qs.filter(
+            Q(first_name__icontains=pt_search_query) |
+            Q(last_name__icontains=pt_search_query) |
+            Q(username__icontains=pt_search_query)
+        )
+
+    performance_tasks = []
+    try:
+        from students.models import Student
+        has_student_model = True
+    except ImportError:
+        has_student_model = False
+    for student in pt_students_qs:
+        # Section info
+        section_name = None
+        if has_student_model:
+            try:
+                student_profile = Student.objects.get(user=student)
+                section_name = getattr(student_profile, "section", None)
+                if callable(section_name):
+                    section_name = section_name()
+                elif hasattr(section_name, "name"):
+                    section_name = section_name.name
+                elif isinstance(section_name, str):
+                    section_name = section_name
+                else:
+                    section_name = str(section_name or "N/A")
+            except Student.DoesNotExist:
+                section_name = "N/A"
+        elif hasattr(student, "section"):
+            section_name = getattr(student, "section", "N/A")
+
+        # Attendance: sum of days_present in selected period
+        attendance_count = None
+        if hasattr(Attendance, 'grading_period'):
+            attendance_qs = Attendance.objects.filter(user=student, grading_period=selected_pt_period)
+        else:
+            attendance_qs = Attendance.objects.filter(user=student)
+        attendance_count = attendance_qs.aggregate(total=Sum('days_present'))['total'] or 0
+
+        # Performance Task: percent_score and weighted_score
+        # Assume StudentProgress model has fields: percent_score, weighted_score, grading_period
+        percent_score = None
+        weighted_score = None
+        try:
+            if hasattr(StudentProgress, 'grading_period'):
+                progress = StudentProgress.objects.filter(user=student, grading_period=selected_pt_period).order_by('-id').first()
+            else:
+                progress = StudentProgress.objects.filter(user=student).order_by('-id').first()
+            if progress:
+                percent_score = getattr(progress, 'percent_score', None)
+                weighted_score = getattr(progress, 'weighted_score', None)
+        except Exception:
+            percent_score = None
+            weighted_score = None
+
+        performance_tasks.append({
+            'section': section_name or "N/A",
+            'full_name': f"{student.last_name}, {student.first_name}".strip() or student.username,
+            'attendance': attendance_count,
+            'percent_score': percent_score,
+            'weighted_score': weighted_score,
+        })
 
     context = {
         'total_users': total_users,
@@ -759,6 +993,15 @@ def admin_dashboard(request):
         'selected_exam_period': selected_exam_period,
         'selected_exam_section': selected_exam_section,
         'exam_search_query': exam_search_query,
+        'written_works_grades': written_works_grades,
+        'written_works_quizzes': written_works_quizzes,
+        'selected_ww_period': selected_ww_period,
+        'selected_ww_section': selected_ww_section,
+        'ww_search_query': ww_search_query,
+        'performance_tasks': performance_tasks,
+        'selected_pt_period': selected_pt_period,
+        'selected_pt_section': selected_pt_section,
+        'pt_search_query': pt_search_query,
     }
 
     from django.template.loader import render_to_string
@@ -770,6 +1013,10 @@ def admin_dashboard(request):
     elif request.GET.get('ajax') == '1' and request.GET.get('table') == 'exam_grades':
         html = render_to_string('dashboard/_exam_grades_table_body.html', context, request=request)
         return HttpResponse(html)
+    # AJAX for Written Works table
+    elif request.GET.get('ajax') == '1' and request.GET.get('table') == 'written_works':
+        html = render_to_string('dashboard/_written_works_table_body.html', context, request=request)
+        return HttpResponse(html)
     # Fallback: any AJAX
     elif request.GET.get('ajax') == '1' or request.headers.get('x-requested-with') == 'XMLHttpRequest':
         html = render_to_string('dashboard/_students_grades_table_body.html', context, request=request)
@@ -778,6 +1025,19 @@ def admin_dashboard(request):
         return render(request, 'dashboard/admin.html', context)
 
 
+
+@login_required
+def performance_task_view(request):
+    """
+    View for displaying performance tasks, including attendance and student progress.
+    """
+    attendance_records = Attendance.objects.select_related('user').order_by('-date')
+    student_progress = StudentProgress.objects.select_related('user').all()
+    context = {
+        'attendance_records': attendance_records,
+        'student_progress': student_progress,
+    }
+    return render(request, 'dashboard/performance_task.html', context)
 
 @login_required
 def download_rankings_docx(request, period_value=None):

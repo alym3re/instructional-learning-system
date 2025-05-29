@@ -1,0 +1,49 @@
+{% extends 'dashboard/admin.html' %}
+{% block content %}
+<h2>Performance Task</h2>
+<table class="table table-bordered">
+    <thead>
+        <tr class="fw-semibold text-maroon bg-light">
+            <th class="bg-white rounded-start-3 sortable" data-sort="section">Section</th>
+            <th class="bg-white sortable" data-sort="full_name">Name</th>
+            <th class="bg-white sortable" data-sort="attendance">Attendance</th>
+            <th class="bg-white sortable" data-sort="percent_score">Percentage Score</th>
+            <th class="bg-white sortable" data-sort="weighted_score">Weighted Score</th>
+            <th class="bg-white rounded-end-3">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for progress in student_progress %}
+            {% with user=progress.user %}
+            <tr>
+                <td>
+                    {% if user.student.section %}{{ user.student.section }}{% else %}N/A{% endif %}
+                </td>
+                <td>{{ user.get_full_name|default:user.username }}</td>
+                <td>
+                    {% with attendance=attendance_records|get_attendance:user.id %}
+                        {% if attendance %}
+                            {{ attendance.days_present }}/{{ attendance.total_days }}
+                        {% else %}
+                            0/0
+                        {% endif %}
+                    {% endwith %}
+                </td>
+                <td><!-- Percentage Score logic here -->--</td>
+                <td><!-- Weighted Score logic here -->--</td>
+                <td><!-- Actions (edit/view) --></td>
+            </tr>
+            {% endwith %}
+        {% empty %}
+            <tr><td colspan="6">No student records found.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% comment %}
+Helper filter to get attendance by user id. Add this to your custom template tags if not present:
+@register.filter
+def get_attendance(attendance_records, user_id):
+    return attendance_records.filter(user__id=user_id).first()
+{% endcomment %}
+{% endblock %}

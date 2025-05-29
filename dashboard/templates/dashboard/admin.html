@@ -162,12 +162,12 @@
                         <table id="students-grades-table" class="table table-hover table-bordered align-middle rounded-4 shadow-sm overflow-hidden">
                             <thead class="text-center rounded-top-4">
                                 <tr class="fw-semibold text-maroon bg-light">
-                                    <th class="bg-white rounded-start-3 sortable" data-sort="section">Section <span class="sort-arrows">{% if sort == 'section' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
-                                    <th class="bg-white sortable" data-sort="full_name">Name <span class="sort-arrows">{% if sort == 'full_name' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
-                                    <th class="bg-white sortable" data-sort="quiz_grade">Quiz Grade (40%) <span class="sort-arrows">{% if sort == 'quiz_grade' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
-                                    <th class="bg-white sortable" data-sort="exam_grade">Exam Grade (60%) <span class="sort-arrows">{% if sort == 'exam_grade' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
-                                    <th class="bg-white sortable" data-sort="grade">Grade (40+60) <span class="sort-arrows">{% if sort == 'grade' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
-                                    <th class="bg-white rounded-end-3 sortable" data-sort="gpa">GPA <span class="sort-arrows">{% if sort == 'gpa' %}{% if dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
+                                    <th class="bg-white rounded-start-3 sortable" data-sort="section">Section <span class="sort-arrows">{% if sort == 'section' %}{% if dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    <th class="bg-white sortable" data-sort="full_name">Name <span class="sort-arrows">{% if sort == 'full_name' %}{% if dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    <th class="bg-white sortable" data-sort="quiz_grade">Quiz Grade (40%) <span class="sort-arrows">{% if sort == 'quiz_grade' %}{% if dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    <th class="bg-white sortable" data-sort="exam_grade">Exam Grade (60%) <span class="sort-arrows">{% if sort == 'exam_grade' %}{% if dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    <th class="bg-white sortable" data-sort="grade">Grade (40+60) <span class="sort-arrows">{% if sort == 'grade' %}{% if dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    <th class="bg-white rounded-end-3 sortable" data-sort="gpa">GPA <span class="sort-arrows">{% if sort == 'gpa' %}{% if dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -245,6 +245,343 @@
         </div>
     </div>
 
+    <!-- ========== WRITTEN WORKS (20%) CARD ========== -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card border-maroon shadow-lg rounded-4 mb-5">
+                <div class="card-header bg-white border-bottom-0 pb-0 rounded-top-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <i class="bi bi-journal-text fs-2 text-maroon"></i>
+                            <h4 class="fw-bold m-0 text-maroon" style="font-size: 2rem;">
+                                Written Works (20%)
+                            </h4>
+                        </div>
+                        <p class="mb-0 text-muted small">Quiz results per student, per section, per grading period</p>
+                    </div>
+                    <div class="d-flex gap-2 mt-3 mt-md-0 flex-wrap">
+                        <button id="downloadWWExcelBtn" class="btn btn-success btn-sm" type="button">
+                            <i class="bi bi-file-earmark-excel"></i> Download as Excel
+                        </button>
+                        <button id="downloadWWDocBtn" class="btn btn-primary btn-sm" type="button">
+                            <i class="bi bi-file-earmark-word"></i> Download as Docs
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body pt-3 pb-4">
+                    <form id="written-works-filter-form" class="row g-2 mb-3 align-items-end" method="get" autocomplete="off">
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label fw-semibold mb-1">Grading Period</label>
+                            <select name="ww_grading_period" class="form-select">
+                                {% for period in grading_periods %}
+                                    <option value="{{ period.0 }}"{% if selected_ww_period|default:"prelim" == period.0 %} selected{% endif %}>{{ period.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label fw-semibold mb-1">Section</label>
+                            <select name="ww_section" class="form-select">
+                                {% for sec in section_choices %}
+                                    <option value="{{ sec.0 }}"{% if sec.0 == selected_ww_section %} selected{% endif %}>{{ sec.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label fw-semibold mb-1 visually-hidden">Search</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" placeholder="Search student name..." name="ww_search" value="{{ ww_search_query|default_if_none:'' }}">
+                                <button class="btn btn-secondary" type="submit">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <div class="table-responsive">
+                        <table id="written-works-table" class="table table-hover table-bordered align-middle rounded-4 shadow-sm overflow-hidden">
+
+                                {% include 'dashboard/_written_works_table_body.html' %}
+                        </table>
+                    </div>
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const form = document.getElementById('written-works-filter-form');
+                            const tableContainer = document.getElementById('written-works-table');
+                            
+                            form.addEventListener('submit', function(e) {
+                                e.preventDefault();
+                                const formData = new FormData(form);
+                                formData.append('ajax', '1');
+                                formData.append('table', 'written_works');
+                                
+                                fetch(window.location.pathname + '?' + new URLSearchParams(formData), {
+                                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                                })
+                                .then(response => response.text())
+                                .then(html => { 
+                                    // Replace the entire table content
+                                    tableContainer.innerHTML = html;
+                                    // Reinitialize sorting functionality
+                                    initSorting();
+                                });
+                            });
+                            
+                            form.querySelectorAll('select, input').forEach(el => {
+                                el.addEventListener('change', function() {
+                                    form.dispatchEvent(new Event('submit'));
+                                });
+                            });
+                            
+                            function initSorting() {
+                                let currentSort = form.querySelector('input[name="sort"]') ? form.querySelector('input[name="sort"]').value : '';
+                                let currentDir = form.querySelector('input[name="dir"]') ? form.querySelector('input[name="dir"]').value : 'asc';
+                                document.querySelectorAll('#written-works-table th.sortable').forEach(function(th) {
+                                    th.style.cursor = 'pointer';
+                                    th.addEventListener('click', function() {
+                                        const sortField = th.getAttribute('data-sort');
+                                        let dir = 'asc';
+                                        if (currentSort === sortField && currentDir === 'asc') dir = 'desc';
+                                        let sortInput = form.querySelector('input[name="sort"]');
+                                        let dirInput = form.querySelector('input[name="dir"]');
+                                        if (!sortInput) {
+                                            sortInput = document.createElement('input');
+                                            sortInput.type = 'hidden';
+                                            sortInput.name = 'sort';
+                                            form.appendChild(sortInput);
+                                        }
+                                        if (!dirInput) {
+                                            dirInput = document.createElement('input');
+                                            dirInput.type = 'hidden';
+                                            dirInput.name = 'dir';
+                                            form.appendChild(dirInput);
+                                        }
+                                        sortInput.value = sortField;
+                                        dirInput.value = dir;
+                                        currentSort = sortField;
+                                        currentDir = dir;
+                                        form.dispatchEvent(new Event('submit'));
+                                    });
+                                });
+                            }
+                            // Initialize sorting on page load
+                            initSorting();
+
+                            // --- Download as Excel ---
+                            document.getElementById('downloadWWExcelBtn').addEventListener('click', function() {
+                                const periodSelect = form.querySelector('select[name="ww_grading_period"]');
+                                const sectionSelect = form.querySelector('select[name="ww_section"]');
+                                const searchInput = form.querySelector('input[name="ww_search"]');
+                                const periodText = periodSelect.options[periodSelect.selectedIndex].text;
+                                const sectionText = sectionSelect.options[sectionSelect.selectedIndex].text;
+                                const searchText = searchInput ? searchInput.value : '';
+                                const table = document.getElementById('written-works-table');
+                                const headerCells = Array.from(table.querySelectorAll('thead th'));
+                                const rows = Array.from(table.querySelectorAll('tbody tr'));
+                                const headers = headerCells.map(th => th.innerText.trim());
+                                const data = [
+                                    ['Written Works Report', '', '', '', '', ''],
+                                    ['Generated on', new Date().toLocaleDateString(), '', '', '', ''],
+                                    ['', '', '', '', '', ''],
+                                    ['Filter Information', '', '', '', '', ''],
+                                    [`Grading Period: ${periodText}`, '', '', '', '', ''],
+                                    [`Section: ${sectionText}`, '', '', '', '', ''],
+                                    [`Search: ${searchText}`, '', '', '', '', ''],
+                                    ['', '', '', '', '', ''],
+                                    headers
+                                ];
+                                rows.forEach(row => {
+                                    const cells = Array.from(row.querySelectorAll('td'));
+                                    let rowData = [];
+                                    cells.forEach((cell, i) => {
+                                        const badge = cell.querySelector('.badge');
+                                        rowData.push(badge ? badge.innerText.trim() : cell.innerText.trim());
+                                    });
+                                    data.push(rowData);
+                                });
+                                const ws = XLSX.utils.aoa_to_sheet(data);
+                                ws['!cols'] = headers.map(() => ({ wch: 16 }));
+                                const wb = XLSX.utils.book_new();
+                                XLSX.utils.book_append_sheet(wb, ws, "Written Works");
+                                XLSX.writeFile(wb, `Written_Works_${periodText}_${sectionText}_${new Date().toISOString().split('T')[0]}.xlsx`);
+                            });
+
+                            // --- Download as DOCX ---
+                            document.getElementById('downloadWWDocBtn').addEventListener('click', function() {
+                                if (!window.docx) {
+                                    alert('Word export failed: The docx.js library is not loaded.');
+                                    return;
+                                }
+                                const periodSelect = form.querySelector('select[name="ww_grading_period"]');
+                                const sectionSelect = form.querySelector('select[name="ww_section"]');
+                                const searchInput = form.querySelector('input[name="ww_search"]');
+                                const periodText = periodSelect.options[periodSelect.selectedIndex].text;
+                                const sectionText = sectionSelect.options[sectionSelect.selectedIndex].text;
+                                const searchText = searchInput ? searchInput.value : '';
+                                const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType } = window.docx;
+                                const table = document.getElementById('written-works-table');
+                                const headerRow = table.querySelector('thead tr');
+                                const rows = Array.from(table.querySelectorAll('tbody tr'));
+                                function createHeaderCell(text) {
+                                    return new TableCell({
+                                        children: [new Paragraph({ children: [new TextRun({ text, bold: true })], alignment: AlignmentType.CENTER })]
+                                    });
+                                }
+                                function createDataCell(text) {
+                                    return new TableCell({
+                                        children: [new Paragraph({ children: [new TextRun({ text })], alignment: AlignmentType.CENTER })]
+                                    });
+                                }
+                                const headerCells = Array.from(headerRow.cells).map(cell => createHeaderCell(cell.innerText.trim()));
+                                const dataRows = rows.map(row => {
+                                    const cells = Array.from(row.querySelectorAll('td'));
+                                    return new TableRow({
+                                        children: cells.map(cell => {
+                                            const badge = cell.querySelector('.badge');
+                                            return createDataCell(badge ? badge.innerText.trim() : cell.innerText.trim());
+                                        })
+                                    });
+                                });
+                                const docTable = new Table({
+                                    rows: [new TableRow({ children: headerCells }), ...dataRows]
+                                });
+                                const doc = new Document({
+                                    sections: [{
+                                        children: [
+                                            new Paragraph({ text: "Written Works Report", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
+                                            new Paragraph({ text: `Generated on ${new Date().toLocaleDateString()}`, alignment: AlignmentType.CENTER }),
+                                            new Paragraph({ text: "Filter Information", heading: HeadingLevel.HEADING_3 }),
+                                            new Paragraph({ text: `Grading Period: ${periodText}` }),
+                                            new Paragraph({ text: `Section: ${sectionText}` }),
+                                            new Paragraph({ text: `Search: ${searchText}` }),
+                                            docTable
+                                        ]
+                                    }]
+                                });
+                                Packer.toBlob(doc).then(blob => {
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `Written_Works_${periodText}_${sectionText}_${new Date().toISOString().split('T')[0]}.docx`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    document.body.removeChild(a);
+                                    URL.revokeObjectURL(url);
+                                });
+                            });
+                        });
+                    </script>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== PERFORMANCE TASK (50%) CARD ========== -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="card border-maroon shadow-lg rounded-4 mb-5">
+                <div class="card-header bg-white border-bottom-0 pb-0 rounded-top-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <i class="bi bi-clipboard-check fs-2 text-maroon"></i>
+                            <h4 class="fw-bold m-0 text-maroon" style="font-size: 2rem;">
+                                Performance Task (50%)
+                            </h4>
+                        </div>
+                        <p class="mb-0 text-muted small">Performance task, attendance, and scores per student, per section, per grading period</p>
+                    </div>
+                    <div class="d-flex gap-2 mt-3 mt-md-0 flex-wrap">
+                        <button id="downloadPTExcelBtn" class="btn btn-success btn-sm" type="button">
+                            <i class="bi bi-file-earmark-excel"></i> Download as Excel
+                        </button>
+                        <button id="downloadPTDocBtn" class="btn btn-primary btn-sm" type="button">
+                            <i class="bi bi-file-earmark-word"></i> Download as Docs
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body pt-3 pb-4">
+                    <form id="performance-task-filter-form" class="row g-2 mb-3 align-items-end" method="get" autocomplete="off">
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label fw-semibold mb-1">Grading Period</label>
+                            <select name="pt_grading_period" class="form-select">
+                                {% for period in grading_periods %}
+                                    <option value="{{ period.0 }}"{% if period.0 == selected_pt_period %} selected{% endif %}>{{ period.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label fw-semibold mb-1">Section</label>
+                            <select name="pt_section" class="form-select">
+                                {% for sec in section_choices %}
+                                    <option value="{{ sec.0 }}"{% if sec.0 == selected_pt_section %} selected{% endif %}>{{ sec.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label fw-semibold mb-1 visually-hidden">Search</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" placeholder="Search student name..." name="pt_search" value="{{ pt_search_query|default_if_none:'' }}">
+                                <button class="btn btn-secondary" type="submit">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <div class="table-responsive">
+                        <table id="performance-task-table" class="table table-hover table-bordered align-middle rounded-4 shadow-sm overflow-hidden">
+                            <thead class="text-center rounded-top-4">
+                                <tr class="fw-semibold text-maroon bg-light">
+                                    <th class="bg-white rounded-start-3 sortable" data-sort="section">Section</th>
+                                    <th class="bg-white sortable" data-sort="full_name">Name</th>
+                                    <th class="bg-white sortable" data-sort="attendance">Attendance</th>
+                                    <th class="bg-white sortable" data-sort="percent_score">Percentage Score</th>
+                                    <th class="bg-white sortable" data-sort="weighted_score">Weighted Score</th>
+                                    <th class="bg-white rounded-end-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if performance_tasks %}
+                                {% for pt in performance_tasks %}
+                                <tr class="text-center align-middle">
+                                    <td class="fw-medium">{{ pt.section }}</td>
+                                    <td class="fw-semibold text-start" style="letter-spacing:0.5px;">{{ pt.full_name }}</td>
+                                    <td>
+                                        {% if pt.attendance is not None %}
+                                            <span class="badge text-dark">{{ pt.attendance }}</span>
+                                        {% else %}
+                                            <span class="badge text-dark">--</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if pt.percent_score is not None %}
+                                            <span class="badge text-dark">{{ pt.percent_score|floatformat:2 }}%</span>
+                                        {% else %}
+                                            <span class="badge text-dark">--</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if pt.weighted_score is not None %}
+                                            <span class="badge text-dark">{{ pt.weighted_score|floatformat:2 }}%</span>
+                                        {% else %}
+                                            <span class="badge text-dark">--</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">No performance task data available for this selection.</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ========== EXAM GRADES CARD ========== -->
     <div class="row mt-5">
         <div class="col-12">
@@ -254,7 +591,7 @@
                         <div class="d-flex align-items-center gap-2 mb-1">
                             <i class="bi bi-clipboard-data fs-2 text-maroon"></i>
                             <h4 class="fw-bold m-0 text-maroon" style="font-size: 2rem;">
-                                Quarterly Assessment (QA)
+                                Examinations(30%)
                             </h4>
                         </div>
                         <p class="mb-0 text-muted small">Exam results per student, per section, per grading period</p>
@@ -271,17 +608,25 @@
                 <div class="card-body pt-3 pb-4">
                     <form id="exam-grades-filter-form" class="row g-2 mb-3 align-items-end" method="get" autocomplete="off">
                         <div class="col-12 col-sm-4">
-                            <label class="form-label fw-semibold mb-1">Section</label>
-                            <select name="exam_section" class="form-select">
-                                {% for sec in section_choices %}
-                                    <option value="{{ sec.0 }}"{% if sec.0 == selected_section %} selected{% endif %}>{{ sec.1 }}</option>
+                            <label class="form-label fw-semibold mb-1">Grading Period</label>
+                            <select name="exam_grading_period" class="form-select">
+                                {% for period in grading_periods %}
+                                    <option value="{{ period.0 }}"{% if period.0 == selected_exam_period %} selected{% endif %}>{{ period.1 }}</option>
                                 {% endfor %}
                             </select>
                         </div>
-                        <div class="col-12 col-sm-8">
+                        <div class="col-12 col-sm-4">
+                            <label class="form-label fw-semibold mb-1">Section</label>
+                            <select name="exam_section" class="form-select">
+                                {% for sec in section_choices %}
+                                    <option value="{{ sec.0 }}"{% if sec.0 == selected_exam_section %} selected{% endif %}>{{ sec.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-4">
                             <label class="form-label fw-semibold mb-1 visually-hidden">Search</label>
                             <div class="input-group">
-                                <input type="text" class="form-control" placeholder="Search student name..." name="exam_search" value="{{ search_query|default_if_none:'' }}">
+                                <input type="text" class="form-control" placeholder="Search student name..." name="exam_search" value="{{ exam_search_query|default_if_none:'' }}">
                                 <button class="btn btn-secondary" type="submit">
                                     <i class="bi bi-search"></i>
                                 </button>
@@ -340,107 +685,45 @@
                         });
                     });
                     </script>
-                    <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        const form = document.getElementById('exam-grades-filter-form');
-                        const tableBody = document.querySelector('#exam-grades-table tbody');
-                        form.addEventListener('submit', function(e) {
-                            e.preventDefault();
-                            const formData = new FormData(form);
-                            formData.append('ajax', '1');
-                            formData.append('table', 'exam_grades');
-                            fetch(window.location.pathname + '?' + new URLSearchParams(formData), {
-                                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                            })
-                            .then(response => response.text())
-                            .then(html => { tableBody.innerHTML = html; });
-                        });
-                        form.querySelectorAll('select, input').forEach(el => {
-                            el.addEventListener('change', function() {
-                                form.dispatchEvent(new Event('submit'));
-                            });
-                        });
-                    });
-                    </script>
                     <div class="table-responsive">
                         <table id="exam-grades-table" class="table table-hover table-bordered align-middle rounded-4 shadow-sm overflow-hidden">
                             <thead class="text-center rounded-top-4">
                                 <tr class="fw-semibold text-maroon bg-light">
-                                    <th class="bg-white rounded-start-3 sortable" data-sort="section">Section <span class="sort-arrows">{% if exam_sort == 'section' %}{% if exam_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
-                                    <th class="bg-white sortable" data-sort="full_name">Name <span class="sort-arrows">{% if exam_sort == 'full_name' %}{% if exam_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
-                                    <th class="sortable" data-sort="prelim_score">Prelim <span class="sort-arrows">{% if exam_sort == 'prelim_score' %}{% if exam_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
-                                    <th class="sortable" data-sort="midterm_score">Midterm <span class="sort-arrows">{% if exam_sort == 'midterm_score' %}{% if exam_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
-                                    <th class="sortable" data-sort="prefinal_score">Prefinal <span class="sort-arrows">{% if exam_sort == 'prefinal_score' %}{% if exam_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
-                                    <th class="sortable" data-sort="final_score">Final <span class="sort-arrows">{% if exam_sort == 'final_score' %}{% if exam_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
-                                    <th class="bg-white sortable" data-sort="exam_percent">Exam Percent <span class="sort-arrows">{% if exam_sort == 'exam_percent' %}{% if exam_dir == 'asc' %}▲{% else %}▼{% endif %}{% else %}▲▼{% endif %}</span></th>
-                                    <th class="bg-white rounded-end-3">Remarks</th>
+                                    <th class="bg-white rounded-start-3 sortable" data-sort="section">Section <span class="sort-arrows">{% if exam_sort == 'section' %}{% if exam_dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    <th class="bg-white sortable" data-sort="full_name">Name <span class="sort-arrows">{% if exam_sort == 'full_name' %}{% if exam_dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    <th class="sortable" data-sort="score_display">Score <span class="sort-arrows">{% if exam_sort == 'score_display' %}{% if exam_dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    <th class="sortable" data-sort="percent_score">Percentage Score <span class="sort-arrows">{% if exam_sort == 'percent_score' %}{% if exam_dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    <th class="sortable" data-sort="weighted_score">Weighted Score <span class="sort-arrows">{% if exam_sort == 'weighted_score' %}{% if exam_dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% if exam_grades %}
                                 {% for exam in exam_grades %}
                                 <tr class="text-center align-middle">
-                                    <td class="fw-medium">{{ exam.section }}</td>
-                                    <td class="fw-semibold text-start" style="letter-spacing:0.5px;">{{ exam.full_name }}</td>
-                                        <td>
-                                            {% if exam.prelim_score is not None %}
-                                                <span class="badge text-dark">
-                                                    {{ exam.prelim_score|floatformat:0 }}
-                                                </span>
-                                            {% else %}
-                                                <span class="badge text-dark">--</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if exam.midterm_score is not None %}
-                                                <span class="badge text-dark">
-                                                    {{ exam.midterm_score|floatformat:0 }}
-                                                </span>
-                                            {% else %}
-                                                <span class="badge text-dark">--</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if exam.prefinal_score is not None %}
-                                                <span class="badge text-dark">
-                                                    {{ exam.prefinal_score|floatformat:0 }}
-                                                </span>
-                                            {% else %}
-                                                <span class="badge text-dark">--</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if exam.final_score is not None %}
-                                                <span class="badge text-dark">
-                                                    {{ exam.final_score|floatformat:0 }}
-                                                </span>
-                                            {% else %}
-                                                <span class="badge text-dark">--</span>
-                                            {% endif %}
-                                        </td>
-                                    <td>
-                                        {% if exam.percent is not None %}
-                                            <span class="badge {% if exam.percent >= 75 %}{% else %}{% endif %} text-dark">
-                                                {{ exam.percent|floatformat:2 }}%
-                                            </span>
-                                        {% else %}
-                                            <span class="badge text-dark">--</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if exam.percent is not None %}
-                                            <span class="badge {% if exam.percent >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
-                                                {% if exam.percent >= 75 %}Passed{% else %}Failed{% endif %}
-                                            </span>
-                                        {% else %}
-                                            <span class="badge text-dark">--</span>
-                                        {% endif %}
-                                    </td>
+                                <td class="fw-medium">{{ exam.section }}</td>
+                                <td class="fw-semibold text-start" style="letter-spacing:0.5px;">{{ exam.full_name }}</td>
+                                <td>
+                                <span class="badge text-dark">{{ exam.score_display }}</span>
+                                </td>
+                                <td>
+                                {% if exam.percent_score is not None %}
+                                <span class="badge text-dark">{{ exam.percent_score|floatformat:2 }}%</span>
+                                {% else %}
+                                <span class="badge text-dark">--</span>
+                                {% endif %}
+                                </td>
+                                <td>
+                                {% if exam.weighted_score is not None %}
+                                <span class="badge text-dark">{{ exam.weighted_score|floatformat:2 }}%</span>
+                                {% else %}
+                                <span class="badge text-dark">--</span>
+                                {% endif %}
+                                </td>
                                 </tr>
                                 {% endfor %}
                                 {% else %}
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted">No exam grades data available for this selection.</td>
+                                <td colspan="6" class="text-center text-muted">No exam grades data available for this selection.</td>
                                 </tr>
                                 {% endif %}
                             </tbody>
@@ -1087,6 +1370,116 @@ document.addEventListener('DOMContentLoaded', function() {
             const a = document.createElement('a');
             a.href = url;
             a.download = `Exam_Grades_${filterInfo.period}_${filterInfo.section}_${new Date().toISOString().split('T')[0]}.docx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    });
+});
+</script>
+
+<!-- Performance Task Export Script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Excel Export
+    document.getElementById('downloadPTExcelBtn').addEventListener('click', function() {
+        const form = document.getElementById('performance-task-filter-form');
+        const periodSelect = form.querySelector('select[name="pt_grading_period"]');
+        const sectionSelect = form.querySelector('select[name="pt_section"]');
+        const searchInput = form.querySelector('input[name="pt_search"]');
+        const periodText = periodSelect.options[periodSelect.selectedIndex].text;
+        const sectionText = sectionSelect.options[sectionSelect.selectedIndex].text;
+        const searchText = searchInput ? searchInput.value : '';
+        const table = document.getElementById('performance-task-table');
+        const headerCells = Array.from(table.querySelectorAll('thead th'));
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
+        const headers = headerCells.map(th => th.innerText.trim());
+        const data = [
+            ['Performance Task Report', '', '', '', '', ''],
+            ['Generated on', new Date().toLocaleDateString(), '', '', '', ''],
+            ['', '', '', '', '', ''],
+            ['Filter Information', '', '', '', '', ''],
+            [`Grading Period: ${periodText}`, '', '', '', '', ''],
+            [`Section: ${sectionText}`, '', '', '', '', ''],
+            [`Search: ${searchText}`, '', '', '', '', ''],
+            ['', '', '', '', '', ''],
+            headers
+        ];
+        rows.forEach(row => {
+            const cells = Array.from(row.querySelectorAll('td'));
+            let rowData = [];
+            cells.forEach((cell, i) => {
+                const badge = cell.querySelector('.badge');
+                rowData.push(badge ? badge.innerText.trim() : cell.innerText.trim());
+            });
+            data.push(rowData);
+        });
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        ws['!cols'] = headers.map(() => ({ wch: 16 }));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Performance Task");
+        XLSX.writeFile(wb, `Performance_Task_${periodText}_${sectionText}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    });
+
+    // Word Export
+    document.getElementById('downloadPTDocBtn').addEventListener('click', function() {
+        if (!window.docx) {
+            alert('Word export failed: The docx.js library is not loaded.');
+            return;
+        }
+        const form = document.getElementById('performance-task-filter-form');
+        const periodSelect = form.querySelector('select[name="pt_grading_period"]');
+        const sectionSelect = form.querySelector('select[name="pt_section"]');
+        const searchInput = form.querySelector('input[name="pt_search"]');
+        const periodText = periodSelect.options[periodSelect.selectedIndex].text;
+        const sectionText = sectionSelect.options[sectionSelect.selectedIndex].text;
+        const searchText = searchInput ? searchInput.value : '';
+        const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType } = window.docx;
+        const table = document.getElementById('performance-task-table');
+        const headerRow = table.querySelector('thead tr');
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
+        function createHeaderCell(text) {
+            return new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text, bold: true })], alignment: AlignmentType.CENTER })]
+            });
+        }
+        function createDataCell(text) {
+            return new TableCell({
+                children: [new Paragraph({ children: [new TextRun({ text })], alignment: AlignmentType.CENTER })]
+            });
+        }
+        const headerCells = Array.from(headerRow.cells).map(cell => createHeaderCell(cell.innerText.trim()));
+        const dataRows = rows.map(row => {
+            const cells = Array.from(row.querySelectorAll('td'));
+            return new TableRow({
+                children: cells.map(cell => {
+                    const badge = cell.querySelector('.badge');
+                    return createDataCell(badge ? badge.innerText.trim() : cell.innerText.trim());
+                })
+            });
+        });
+        const docTable = new Table({
+            rows: [new TableRow({ children: headerCells }), ...dataRows]
+        });
+        const doc = new Document({
+            sections: [{
+                children: [
+                    new Paragraph({ text: "Performance Task Report", heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
+                    new Paragraph({ text: `Generated on ${new Date().toLocaleDateString()}`, alignment: AlignmentType.CENTER }),
+                    new Paragraph({ text: "Filter Information", heading: HeadingLevel.HEADING_3 }),
+                    new Paragraph({ text: `Grading Period: ${periodText}` }),
+                    new Paragraph({ text: `Section: ${sectionText}` }),
+                    new Paragraph({ text: `Search: ${searchText}` }),
+                    docTable
+                ]
+            }]
+        });
+        Packer.toBlob(doc).then(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Performance_Task_${periodText}_${sectionText}_${new Date().toISOString().split('T')[0]}.docx`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

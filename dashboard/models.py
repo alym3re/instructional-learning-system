@@ -48,3 +48,17 @@ class ActivityLog(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.get_activity_type_display()}"
+
+
+class Attendance(models.Model):
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    total_days = models.PositiveIntegerField(default=0)
+    days_present = models.PositiveIntegerField(default=0)
+    remarks = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        unique_together = ('user',)
+        ordering = ['user']
+
+    def __str__(self):
+        return f"{self.user.username} - Present: {self.days_present}/{self.total_days}"

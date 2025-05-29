@@ -1,0 +1,53 @@
+{% load dict_extras %}
+<thead class="text-center rounded-top-4">
+                                <tr class="fw-semibold text-maroon bg-light">
+                                    <th class="bg-white rounded-start-3 sortable" data-sort="section">Section <span class="sort-arrows">{% if ww_sort == 'section' %}{% if ww_dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    <th class="bg-white sortable" data-sort="full_name">Name <span class="sort-arrows">{% if ww_sort == 'full_name' %}{% if ww_dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    {% for quiz in written_works_quizzes %}
+                                    <th class="sortable" data-sort="quiz_{{ quiz.id }}">{{ quiz.title }}</th>
+                                    {% endfor %}
+                                    <th class="sortable" data-sort="percentage_score">Percentage Score <span class="sort-arrows">{% if ww_sort == 'percentage_score' %}{% if ww_dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    <th class="sortable" data-sort="weighted_score">Weighted Score <span class="sort-arrows">{% if ww_sort == 'weighted_score' %}{% if ww_dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                </tr>
+</thead>
+<tbody>
+    {% if written_works_grades %}
+        {% for stu in written_works_grades %}
+        <tr class="text-center align-middle">
+            <td class="fw-medium">{{ stu.section }}</td>
+            <td class="fw-semibold text-start" style="letter-spacing:0.5px;">{{ stu.full_name }}</td>
+            {% for quiz in written_works_quizzes %}
+            <td>
+            {% with q=stu.quiz_scores|get_item:quiz.id %}
+                {% if q.raw_points is not None and q.total_points is not None %}
+                    <span class="badge text-dark">{{ q.raw_points|floatformat:0 }}/{{ q.total_points|floatformat:0 }}</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            {% endwith %}
+            </td>
+            {% endfor %}
+            <td>
+                {% if stu.percentage_score is not None %}
+                    <span class="badge text-dark">{{ stu.percentage_score|floatformat:2 }}%</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if stu.weighted_score is not None %}
+                    <span class="badge text-dark">{{ stu.weighted_score|floatformat:2 }}%</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    {% else %}
+        <tr>
+            <td colspan="{{ written_works_quizzes|length|add:5 }}" class="text-center text-muted">
+                No written works data available for {{ current_period_label }} period
+            </td>
+        </tr>
+    {% endif %}
+</tbody>
