@@ -807,7 +807,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-            <input type="hidden" name="grading_period" value="{{ selected_pt_period }}">
+            <input type="hidden" name="grading_period" id="modalGradingPeriodInput" value="{{ selected_pt_period }}">
             <div class="mb-3">
                 <label for="totalDaysInputAll" class="form-label">Total Days</label>
                 <input type="number" class="form-control" id="totalDaysInputAll" name="total_days" min="0" required>
@@ -822,6 +822,54 @@
     </div>
     </div>
 </div>
+<script>
+// Ensure the grading period in the modal matches the current filter when opened
+const editTotalDaysModal = document.getElementById('editTotalDaysModal');
+if (editTotalDaysModal) {
+    editTotalDaysModal.addEventListener('show.bs.modal', function (event) {
+        const gradingPeriodSelect = document.querySelector('#performance-task-filter-form select[name="pt_grading_period"]');
+        const modalGradingPeriodInput = document.getElementById('modalGradingPeriodInput');
+        if (gradingPeriodSelect && modalGradingPeriodInput) {
+            modalGradingPeriodInput.value = gradingPeriodSelect.value;
+        }
+    });
+}
+
+// AJAX submit for Edit Total Days form
+const editTotalDaysForm = editTotalDaysModal ? editTotalDaysModal.querySelector('form') : null;
+if (editTotalDaysForm) {
+    editTotalDaysForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(editTotalDaysForm);
+        fetch(editTotalDaysForm.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network error');
+            return response.json();
+        })
+        .then(data => {
+            // Close modal
+            const modalInstance = bootstrap.Modal.getInstance(editTotalDaysModal);
+            if (modalInstance) modalInstance.hide();
+            // Refresh performance task table
+            const ptForm = document.getElementById('performance-task-filter-form');
+            if (ptForm) ptForm.dispatchEvent(new Event('submit'));
+            // Optionally show a toast or alert
+            if (data && data.message) {
+                alert(data.message);
+            }
+        })
+        .catch(err => {
+            alert('Failed to update total days.');
+        });
+    });
+}
+</script>
 
 <style>
 .text-maroon { color: #6A1829 !important; }

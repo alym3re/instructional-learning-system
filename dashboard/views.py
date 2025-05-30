@@ -1407,14 +1407,35 @@ def edit_total_days(request):
     try:
         total_days = int(total_days)
     except (TypeError, ValueError):
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            from django.http import JsonResponse
+            return JsonResponse({'success': False, 'message': 'Invalid number of days.'}, status=400)
         messages.error(request, "Invalid number of days.")
         return redirect('admin_dashboard')
 
     from .models import Attendance
-    attendance_qs = Attendance.objects.all()
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
     # Only filter if grading_period is not 'overall' and not empty
     if grading_period and grading_period != 'overall':
-        attendance_qs = attendance_qs.filter(grading_period=grading_period)
+        students = User.objects.filter(is_staff=False)
+        # Ensure every student has an Attendance record for this period
+        for student in students:
+            Attendance.objects.get_or_create(user=student, grading_period=grading_period)
+        attendance_qs = Attendance.objects.filter(grading_period=grading_period)
+    else:
+        students = User.objects.filter(is_staff=False)
+        # Ensure every student has an Attendance record for every period
+        from lessons.models import GRADING_PERIOD_CHOICES
+        for student in students:
+            for period, _ in GRADING_PERIOD_CHOICES:
+                Attendance.objects.get_or_create(user=student, grading_period=period)
+        attendance_qs = Attendance.objects.all()
     updated = attendance_qs.update(total_days=total_days)
-    messages.success(request, f"Total days updated for {updated} students.")
+    msg = f"Total days updated for {updated} students."
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        from django.http import JsonResponse
+        return JsonResponse({'success': True, 'message': msg})
+    messages.success(request, msg)
     return redirect('admin_dashboard')
