@@ -3,64 +3,90 @@
     <tr class="text-center align-middle">
         <td class="fw-medium">{{ stu.section }}</td>
         <td class="fw-semibold text-start" style="letter-spacing:0.5px;">{{ stu.full_name }}</td>
-        <td>
-            {% if stu.quiz_grade is not None %}
-                <span class="badge {% if stu.quiz_grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
-                    {{ stu.quiz_grade|floatformat:2 }}%
-                </span>
-            {% else %}
-                <span class="badge text-dark">--</span>
-            {% endif %}
-        </td>
-        <td>
-            {% if stu.exam_grade is not None %}
-                <span class="badge {% if stu.exam_grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
-                    {{ stu.exam_grade|floatformat:2 }}%
-                </span>
-            {% else %}
-                <span class="badge text-dark">--</span>
-            {% endif %}
-        </td>
-        <td class="fw-bold">
-            {% if stu.grade is not None %}
-                <span class="badge {% if stu.grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
-                    {{ stu.grade|floatformat:2 }}%
-                </span>
-            {% else %}
-                <span class="badge text-dark">--</span>
-            {% endif %}
-        </td>
-        <td class="fw-bold">
-            {% if stu.grade is not None %}
-                {% if stu.grade >= 99 %}
-                    <span class="badge bg-success text-light">1.00</span>
-                {% elif stu.grade >= 96 %}
-                    <span class="badge bg-success text-light">1.25</span>
-                {% elif stu.grade >= 93 %}
-                    <span class="badge bg-success text-light">1.50</span>
-                {% elif stu.grade >= 90 %}
-                    <span class="badge bg-success text-light">1.75</span>
-                {% elif stu.grade >= 87 %}
-                    <span class="badge bg-success text-light">2.00</span>
-                {% elif stu.grade >= 84 %}
-                    <span class="badge bg-success text-light">2.25</span>
-                {% elif stu.grade >= 81 %}
-                    <span class="badge bg-success text-light">2.50</span>
-                {% elif stu.grade >= 78 %}
-                    <span class="badge bg-success text-light">2.75</span>
-                {% elif stu.grade >= 75 %}
-                    <span class="badge bg-success text-light">3.00</span>
+        {% if selected_period == 'overall' %}
+            <td>
+                {% if stu.prelim is not None %}
+                    <span class="badge {% if stu.prelim >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.prelim|floatformat:2 }}%</span>
                 {% else %}
-                    <span class="badge bg-danger text-light">5.00</span>
+                    <span class="badge text-dark">--</span>
                 {% endif %}
-            {% else %}
-                <span class="badge text-dark">--</span>
-            {% endif %}
-        </td>
+            </td>
+            <td>
+                {% if stu.midterm is not None %}
+                    <span class="badge {% if stu.midterm >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.midterm|floatformat:2 }}%</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if stu.prefinal is not None %}
+                    <span class="badge {% if stu.prefinal >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.prefinal|floatformat:2 }}%</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if stu.final is not None %}
+                    <span class="badge {% if stu.final >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.final|floatformat:2 }}%</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            </td>
+            <td class="fw-bold">
+                {% if stu.overall is not None %}
+                    <span class="badge {% if stu.overall >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.overall|floatformat:2 }}%</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            </td>
+            <td class="fw-bold">
+                {% if stu.gpa is not None %}
+                    <span class="badge {% if stu.gpa <= 3.00 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.gpa|floatformat:2 }}</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            </td>
+        {% else %}
+            <td>
+                {% if stu.written_works is not None %}
+                    <span class="badge {% if stu.written_works >= 15 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.written_works|floatformat:2 }}%</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if stu.performance_task is not None %}
+                    <span class="badge {% if stu.performance_task >= 37.5 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.performance_task|floatformat:2 }}%</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if stu.examinations is not None %}
+                    <span class="badge {% if stu.examinations >= 22.5 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.examinations|floatformat:2 }}%</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            </td>
+            <td class="fw-bold">
+                {% if stu.grade is not None %}
+                    <span class="badge {% if stu.grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.grade|floatformat:2 }}%</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            </td>
+            <td class="fw-bold">
+                {% if stu.gpa is not None %}
+                    <span class="badge {% if stu.gpa <= 3.00 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.gpa|floatformat:2 }}</span>
+                {% else %}
+                    <span class="badge text-dark">--</span>
+                {% endif %}
+            </td>
+        {% endif %}
     </tr>
     {% endfor %}
 {% else %}
-    <tr>
-        <td colspan="6" class="text-center text-muted">No grades data available for this selection.</td>
-    </tr>
+<tr>
+    <td colspan="8" class="text-center text-muted">No grades data available for this selection.</td>
+</tr>
 {% endif %}

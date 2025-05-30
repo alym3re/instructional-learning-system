@@ -157,18 +157,31 @@
                         });
                     });
                     </script>
-
                     <div class="table-responsive">
                         <table id="students-grades-table" class="table table-hover table-bordered align-middle rounded-4 shadow-sm overflow-hidden">
                             <thead class="text-center rounded-top-4">
+                                {% if selected_period == 'overall' %}
                                 <tr class="fw-semibold text-maroon bg-light">
-                                    <th class="bg-white rounded-start-3 sortable" data-sort="section">Section <span class="sort-arrows">{% if sort == 'section' %}{% if dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
-                                    <th class="bg-white sortable" data-sort="full_name">Name <span class="sort-arrows">{% if sort == 'full_name' %}{% if dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
-                                    <th class="bg-white sortable" data-sort="quiz_grade">Quiz Grade (40%) <span class="sort-arrows">{% if sort == 'quiz_grade' %}{% if dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
-                                    <th class="bg-white sortable" data-sort="exam_grade">Exam Grade (60%) <span class="sort-arrows">{% if sort == 'exam_grade' %}{% if dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
-                                    <th class="bg-white sortable" data-sort="grade">Grade (40+60) <span class="sort-arrows">{% if sort == 'grade' %}{% if dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
-                                    <th class="bg-white rounded-end-3 sortable" data-sort="gpa">GPA <span class="sort-arrows">{% if sort == 'gpa' %}{% if dir == 'asc' %}{% else %}{% endif %}{% else %}{% endif %}</span></th>
+                                    <th class="bg-white rounded-start-3 sortable" data-sort="section">Section</th>
+                                    <th class="bg-white sortable" data-sort="full_name">Name</th>
+                                    <th class="bg-white sortable" data-sort="prelim">Prelim Grade</th>
+                                    <th class="bg-white sortable" data-sort="midterm">Midterm Grade</th>
+                                    <th class="bg-white sortable" data-sort="prefinal">Prefinal Grade</th>
+                                    <th class="bg-white sortable" data-sort="final">Final Grade</th>
+                                    <th class="bg-white sortable" data-sort="overall">Overall Grade</th>
+                                    <th class="bg-white rounded-end-3 sortable" data-sort="gpa">GPA</th>
                                 </tr>
+                                {% else %}
+                                <tr class="fw-semibold text-maroon bg-light">
+                                    <th class="bg-white rounded-start-3 sortable" data-sort="section">Section</th>
+                                    <th class="bg-white sortable" data-sort="full_name">Name</th>
+                                    <th class="bg-white sortable" data-sort="written_works">Written Works (Weighted)</th>
+                                    <th class="bg-white sortable" data-sort="performance_task">Performance Task (Weighted)</th>
+                                    <th class="bg-white sortable" data-sort="examinations">Examinations (Weighted)</th>
+                                    <th class="bg-white sortable" data-sort="grade">Grade (Sum)</th>
+                                    <th class="bg-white rounded-end-3 sortable" data-sort="gpa">GPA</th>
+                                </tr>
+                                {% endif %}
                             </thead>
                             <tbody>
                                 {% if students_grades %}
@@ -176,65 +189,91 @@
                                 <tr class="text-center align-middle">
                                     <td class="fw-medium">{{ stu.section }}</td>
                                     <td class="fw-semibold text-start" style="letter-spacing:0.5px;">{{ stu.full_name }}</td>
-                                    <td>
-                                        {% if stu.quiz_grade is not None %}
-                                            <span class="badge {% if stu.quiz_grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
-                                                {{ stu.quiz_grade|floatformat:2 }}%
-                                            </span>
-                                        {% else %}
-                                            <span class="badge text-dark">--</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if stu.exam_grade is not None %}
-                                            <span class="badge {% if stu.exam_grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
-                                                {{ stu.exam_grade|floatformat:2 }}%
-                                            </span>
-                                        {% else %}
-                                            <span class="badge text-dark">--</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="fw-bold">
-                                        {% if stu.grade is not None %}
-                                            <span class="badge {% if stu.grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">
-                                                {{ stu.grade|floatformat:2 }}%
-                                            </span>
-                                        {% else %}
-                                            <span class="badge text-dark">--</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="fw-bold">
-                                        {% if stu.grade is not None %}
-                                            {% if stu.grade >= 99 %}
-                                                <span class="badge bg-success text-light">1.00</span>
-                                            {% elif stu.grade >= 96 %}
-                                                <span class="badge bg-success text-light">1.25</span>
-                                            {% elif stu.grade >= 93 %}
-                                                <span class="badge bg-success text-light">1.50</span>
-                                            {% elif stu.grade >= 90 %}
-                                                <span class="badge bg-success text-light">1.75</span>
-                                            {% elif stu.grade >= 87 %}
-                                                <span class="badge bg-success text-light">2.00</span>
-                                            {% elif stu.grade >= 84 %}
-                                                <span class="badge bg-success text-light">2.25</span>
-                                            {% elif stu.grade >= 81 %}
-                                                <span class="badge bg-success text-light">2.50</span>
-                                            {% elif stu.grade >= 78 %}
-                                                <span class="badge bg-success text-light">2.75</span>
-                                            {% elif stu.grade >= 75 %}
-                                                <span class="badge bg-success text-light">3.00</span>
+                                    {% if selected_period == 'overall' %}
+                                        <td>
+                                            {% if stu.prelim is not None %}
+                                                <span class="badge {% if stu.prelim >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.prelim|floatformat:2 }}%</span>
                                             {% else %}
-                                                <span class="badge bg-danger text-light">5.00</span>
+                                                <span class="badge text-dark">--</span>
                                             {% endif %}
-                                        {% else %}
-                                            <span class="badge text-dark">--</span>
-                                        {% endif %}
-                                    </td>
+                                        </td>
+                                        <td>
+                                            {% if stu.midterm is not None %}
+                                                <span class="badge {% if stu.midterm >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.midterm|floatformat:2 }}%</span>
+                                            {% else %}
+                                                <span class="badge text-dark">--</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if stu.prefinal is not None %}
+                                                <span class="badge {% if stu.prefinal >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.prefinal|floatformat:2 }}%</span>
+                                            {% else %}
+                                                <span class="badge text-dark">--</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if stu.final is not None %}
+                                                <span class="badge {% if stu.final >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.final|floatformat:2 }}%</span>
+                                            {% else %}
+                                                <span class="badge text-dark">--</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="fw-bold">
+                                            {% if stu.overall is not None %}
+                                                <span class="badge {% if stu.overall >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.overall|floatformat:2 }}%</span>
+                                            {% else %}
+                                                <span class="badge text-dark">--</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="fw-bold">
+                                            {% if stu.gpa is not None %}
+                                                <span class="badge {% if stu.gpa <= 3.00 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.gpa|floatformat:2 }}</span>
+                                            {% else %}
+                                                <span class="badge text-dark">--</span>
+                                            {% endif %}
+                                        </td>
+                                    {% else %}
+                                        <td>
+                                            {% if stu.written_works is not None %}
+                                                <span class="badge {% if stu.written_works >= 15 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.written_works|floatformat:2 }}%</span>
+                                            {% else %}
+                                                <span class="badge text-dark">--</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if stu.performance_task is not None %}
+                                                <span class="badge {% if stu.performance_task >= 37.5 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.performance_task|floatformat:2 }}%</span>
+                                            {% else %}
+                                                <span class="badge text-dark">--</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if stu.examinations is not None %}
+                                                <span class="badge {% if stu.examinations >= 22.5 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.examinations|floatformat:2 }}%</span>
+                                            {% else %}
+                                                <span class="badge text-dark">--</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="fw-bold">
+                                            {% if stu.grade is not None %}
+                                                <span class="badge {% if stu.grade >= 75 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.grade|floatformat:2 }}%</span>
+                                            {% else %}
+                                                <span class="badge text-dark">--</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="fw-bold">
+                                            {% if stu.gpa is not None %}
+                                                <span class="badge {% if stu.gpa <= 3.00 %}bg-success{% else %}bg-danger{% endif %} text-light">{{ stu.gpa|floatformat:2 }}</span>
+                                            {% else %}
+                                                <span class="badge text-dark">--</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endif %}
                                 </tr>
                                 {% endfor %}
                                 {% else %}
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted">No grades data available for this selection.</td>
+                                    <td colspan="8" class="text-center text-muted">No grades data available for this selection.</td>
                                 </tr>
                                 {% endif %}
                             </tbody>
@@ -627,7 +666,15 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></button>
+                                    <button class="btn btn-sm btn-outline-secondary edit-days-present-btn" 
+                                    data-user-id="{{ pt.user_id }}"
+                                    data-full-name="{{ pt.full_name|escapejs }}"
+                                    data-days-present="{{ pt.days_present }}"
+                                    data-total-days="{{ pt.total_days }}"
+                                    type="button"
+                                    title="Edit Days Present">
+                                    <i class="bi bi-pencil"></i>
+                                    </button>
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -821,7 +868,107 @@
         </div>
     </div>
     </div>
+
+    <!-- Edit Days Present Modal -->
+    <div class="modal fade" id="editDaysPresentModal" tabindex="-1" aria-labelledby="editDaysPresentLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+        <form id="editDaysPresentForm" method="post" action="/dashboard/edit_days_present/">
+            {% csrf_token %}
+            <div class="modal-header">
+            <h5 class="modal-title" id="editDaysPresentLabel">Edit Days Present</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+            <input type="hidden" name="user_id" id="editDaysPresentUserId">
+            <input type="hidden" name="grading_period" id="editDaysPresentGradingPeriod">
+            <div class="mb-3">
+                <label class="form-label">Student</label>
+                <input type="text" class="form-control" id="editDaysPresentFullName" readonly>
+            </div>
+            <div class="mb-3">
+                <label for="editDaysPresentInput" class="form-label">Days Present</label>
+                <input type="number" class="form-control" id="editDaysPresentInput" name="days_present" min="0" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Total Days</label>
+                <input type="number" class="form-control" id="editDaysPresentTotalDays" readonly>
+            </div>
+            </div>
+            <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+        </div>
+    </div>
+    </div>
+
 </div>
+
+<script>
+// Delegate click for Edit Days Present buttons to always work after AJAX table refresh
+function handleEditDaysPresentBtnClick(event) {
+  const btn = event.target.closest('.edit-days-present-btn');
+  if (!btn) return;
+  event.preventDefault();
+  // Set modal fields
+  const userId = btn.getAttribute('data-user-id');
+  const fullName = btn.getAttribute('data-full-name');
+  const daysPresent = btn.getAttribute('data-days-present');
+  const totalDays = btn.getAttribute('data-total-days');
+  const gradingPeriodSelect = document.querySelector('#performance-task-filter-form select[name="pt_grading_period"]');
+  const gradingPeriod = gradingPeriodSelect ? gradingPeriodSelect.value : '';
+  const gradingPeriodInput = document.getElementById('editDaysPresentGradingPeriod');
+  if (gradingPeriodInput) gradingPeriodInput.value = gradingPeriod;
+  document.getElementById('editDaysPresentUserId').value = userId;
+  document.getElementById('editDaysPresentFullName').value = fullName;
+  document.getElementById('editDaysPresentInput').value = daysPresent;
+  document.getElementById('editDaysPresentTotalDays').value = totalDays;
+  // Show modal programmatically (works after AJAX table refresh)
+  const modal = new bootstrap.Modal(document.getElementById('editDaysPresentModal'));
+  modal.show();
+}
+// Attach event delegation to the document for dynamic content
+// This ensures the handler works after AJAX table refreshes
+
+document.addEventListener('click', handleEditDaysPresentBtnClick);
+// AJAX submit for Edit Days Present form
+const editDaysPresentForm = document.getElementById('editDaysPresentForm');
+if (editDaysPresentForm) {
+  editDaysPresentForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const formData = new FormData(editDaysPresentForm);
+    fetch(editDaysPresentForm.action, {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: formData
+    })
+    .then(response => {
+      if (!response.ok) throw new Error('Network error');
+      return response.json();
+    })
+    .then(data => {
+      // Close modal
+      const modalInstance = bootstrap.Modal.getInstance(editDaysPresentModal);
+      if (modalInstance) modalInstance.hide();
+      // Refresh performance task table
+      const ptForm = document.getElementById('performance-task-filter-form');
+      if (ptForm) ptForm.dispatchEvent(new Event('submit'));
+      // Optionally show a toast or alert
+      if (data && data.message) {
+        alert(data.message);
+      }
+    })
+    .catch(err => {
+      alert('Failed to update days present.');
+    });
+  });
+}
+</script>
+
 <script>
 // Ensure the grading period in the modal matches the current filter when opened
 const editTotalDaysModal = document.getElementById('editTotalDaysModal');

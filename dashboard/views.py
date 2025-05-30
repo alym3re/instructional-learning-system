@@ -22,6 +22,7 @@ from docx.oxml.ns import nsdecls
 from django.contrib.auth import get_user_model
 import os
 from django.conf import settings
+from django.http import JsonResponse
 
 TEMPLATE_PATH = "media/templates/RANKING_TEMPLATE.docx"
 
@@ -576,61 +577,193 @@ def admin_dashboard(request):
         has_student_model = True
     except ImportError:
         has_student_model = False
-    
-    for student in all_students:
-        # Try to get section information if available
-        section_name = None
-        if has_student_model:
-            try:
-                student_profile = Student.objects.get(user=student)
-                section_name = getattr(student_profile, "section", None)
-                if callable(section_name):
-                    section_name = section_name()
-                elif hasattr(section_name, "name"):
-                    section_name = section_name.name
-                elif isinstance(section_name, str):
-                    section_name = section_name
+
+    grading_period_keys = [p[0] for p in grading_periods]
+
+    if selected_period == 'overall':
+        # For each student, get grades for each period, then average
+        for student in all_students:
+            # Section info
+            section_name = None
+            if has_student_model:
+                try:
+                    student_profile = Student.objects.get(user=student)
+                    section_name = getattr(student_profile, "section", None)
+                    if callable(section_name):
+                        section_name = section_name()
+                    elif hasattr(section_name, "name"):
+                        section_name = section_name.name
+                    elif isinstance(section_name, str):
+                        section_name = section_name
+                    else:
+                        section_name = str(section_name or "N/A")
+                except Student.DoesNotExist:
+                    section_name = "N/A"
+            elif hasattr(student, "section"):
+                section_name = getattr(student, "section", "N/A")
+
+            period_grades = {}
+            period_count = 0
+            period_sum = 0
+            for period in grading_period_keys:
+                quiz_filter = dict(user=student, completed=True, quiz__is_archived=False, grading_period=period)
+                exam_filter = dict(user=student, completed=True, grading_period=period)
+                quiz_avg = QuizAttempt.objects.filter(**quiz_filter).aggregate(avg=Avg('score'))['avg']
+                exam_avg = ExamAttempt.objects.filter(**exam_filter).aggregate(avg=Avg('score'))['avg']
+                if quiz_avg is not None and exam_avg is not None:
+                    grade = quiz_avg * 0.4 + exam_avg * 0.6
+                    period_grades[period] = grade
+                    period_sum += grade
+                    period_count += 1
                 else:
-                    section_name = str(section_name or "N/A")
-            except Student.DoesNotExist:
-                section_name = "N/A"
-        elif hasattr(student, "section"):
-            section_name = getattr(student, "section", "N/A")
-        
-        # Initialize averages to None to avoid unbound errors
-        quiz_avg = None
-        exam_avg = None
-        
-        quiz_filter = dict(user=student, completed=True, quiz__is_archived=False)
-        exam_filter = dict(user=student, completed=True)
-        if selected_period and selected_period != 'overall':
-            quiz_filter['grading_period'] = selected_period
-            exam_filter['grading_period'] = selected_period
-        
-        # Quiz average (out of 100) for the selected period
-        student_quiz_attempts = QuizAttempt.objects.filter(**quiz_filter)
-        if student_quiz_attempts.exists():
-            quiz_avg = student_quiz_attempts.aggregate(avg=Avg('score'))['avg']
-        
-        # Exam average (out of 100) for the selected period
-        student_exam_attempts = ExamAttempt.objects.filter(**exam_filter)
-        if student_exam_attempts.exists():
-            exam_avg = student_exam_attempts.aggregate(avg=Avg('score'))['avg']
-        
-        # Calculate final grade only if both components exist
-        if quiz_avg is not None and exam_avg is not None:
-            final_grade = quiz_avg * 0.4 + exam_avg * 0.6  # Fixed weights (40% quiz, 60% exam)
-        else:
-            final_grade = None
-        
-        students_grades.append({
-            'section': section_name or "N/A",
-            'full_name': f"{student.last_name}, {student.first_name}".strip() or student.username,
-            'quiz_grade': quiz_avg,
-            'exam_grade': exam_avg,
-            'grade': final_grade,
-        })
-    
+                    period_grades[period] = None
+            overall_grade = (period_sum / period_count) if period_count > 0 else None
+            # GPA calculation (same as before)
+            gpa = None
+            if overall_grade is not None:
+                if overall_grade >= 99:
+                    gpa = 1.00
+                elif overall_grade >= 96:
+                    gpa = 1.25
+                elif overall_grade >= 93:
+                    gpa = 1.50
+                elif overall_grade >= 90:
+                    gpa = 1.75
+                elif overall_grade >= 87:
+                    gpa = 2.00
+                elif overall_grade >= 84:
+                    gpa = 2.25
+                elif overall_grade >= 81:
+                    gpa = 2.50
+                elif overall_grade >= 78:
+                    gpa = 2.75
+                elif overall_grade >= 75:
+                    gpa = 3.00
+                else:
+                    gpa = 5.00
+            students_grades.append({
+                'section': section_name or "N/A",
+                'full_name': f"{student.last_name}, {student.first_name}".strip() or student.username,
+                'prelim': period_grades.get('prelim'),
+                'midterm': period_grades.get('midterm'),
+                'prefinal': period_grades.get('prefinal'),
+                'final': period_grades.get('final'),
+                'overall': overall_grade,
+                'gpa': gpa,
+            })
+    else:
+        # For a specific period, get weighted scores for written works, performance task, exams
+        # Written Works (20%)
+        written_works_quizzes = list(Quiz.objects.filter(grading_period=selected_period, is_archived=False).order_by('id'))
+        for student in all_students:
+            # Section info
+            section_name = None
+            if has_student_model:
+                try:
+                    student_profile = Student.objects.get(user=student)
+                    section_name = getattr(student_profile, "section", None)
+                    if callable(section_name):
+                        section_name = section_name()
+                    elif hasattr(section_name, "name"):
+                        section_name = section_name.name
+                    elif isinstance(section_name, str):
+                        section_name = section_name
+                    else:
+                        section_name = str(section_name or "N/A")
+                except Student.DoesNotExist:
+                    section_name = "N/A"
+            elif hasattr(student, "section"):
+                section_name = getattr(student, "section", "N/A")
+            # Written Works
+            quiz_scores = []
+            student_has_attempt = False
+            for quiz in written_works_quizzes:
+                attempt = QuizAttempt.objects.filter(user=student, quiz=quiz, completed=True).order_by('-score').first()
+                if attempt:
+                    student_has_attempt = True
+                    raw_points = getattr(attempt, 'raw_points', None)
+                    total_points = getattr(attempt, 'total_points', None)
+                    if raw_points is None:
+                        raw_points = attempt.score
+                    if total_points is None:
+                        total_points = getattr(quiz, 'max_score', 100)
+                    percent = round((raw_points / total_points) * 100, 2) if total_points else 0.0
+                    quiz_scores.append(percent)
+                else:
+                    quiz_scores.append(0.0)
+            if written_works_quizzes:
+                if student_has_attempt:
+                    ww_percentage = round(sum(quiz_scores) / len(written_works_quizzes), 2)
+                    ww_weighted = round(ww_percentage * 0.2, 2)
+                else:
+                    ww_percentage = None
+                    ww_weighted = None
+            else:
+                ww_percentage = None
+                ww_weighted = None
+            # Performance Task (50%)
+            if hasattr(Attendance, 'grading_period'):
+                attendance_qs = Attendance.objects.filter(user=student, grading_period=selected_period)
+            else:
+                attendance_qs = Attendance.objects.filter(user=student)
+            days_present = attendance_qs.aggregate(total=Sum('days_present'))['total'] or 0
+            total_days = attendance_qs.aggregate(total=Sum('total_days'))['total'] or 0
+            if total_days > 0:
+                attendance_percent = round((days_present / total_days) * 100, 2)
+            else:
+                attendance_percent = 0.0
+            pt_weighted = round(attendance_percent * 0.5, 2) if total_days > 0 else 0.0
+            # Examinations (30%)
+            exam_attempt = ExamAttempt.objects.filter(user=student, completed=True, grading_period=selected_period).order_by('-id').first()
+            if exam_attempt:
+                user_score = getattr(exam_attempt, 'raw_points', None)
+                total_items = getattr(exam_attempt, 'total_points', None)
+                if user_score is None:
+                    user_score = getattr(exam_attempt, 'score', None)
+                if total_items is None:
+                    total_items = 100
+                exam_percent = round((user_score / total_items) * 100, 2) if user_score is not None and total_items else None
+                exam_weighted = round(exam_percent * 0.3, 2) if exam_percent is not None else None
+            else:
+                exam_percent = None
+                exam_weighted = None
+            # Grade (sum)
+            if ww_weighted is not None and pt_weighted is not None and exam_weighted is not None:
+                grade_sum = round(ww_weighted + pt_weighted + exam_weighted, 2)
+            else:
+                grade_sum = None
+            # GPA calculation (same as before)
+            gpa = None
+            if grade_sum is not None:
+                if grade_sum >= 99:
+                    gpa = 1.00
+                elif grade_sum >= 96:
+                    gpa = 1.25
+                elif grade_sum >= 93:
+                    gpa = 1.50
+                elif grade_sum >= 90:
+                    gpa = 1.75
+                elif grade_sum >= 87:
+                    gpa = 2.00
+                elif grade_sum >= 84:
+                    gpa = 2.25
+                elif grade_sum >= 81:
+                    gpa = 2.50
+                elif grade_sum >= 78:
+                    gpa = 2.75
+                elif grade_sum >= 75:
+                    gpa = 3.00
+                else:
+                    gpa = 5.00
+            students_grades.append({
+                'section': section_name or "N/A",
+                'full_name': f"{student.last_name}, {student.first_name}".strip() or student.username,
+                'written_works': ww_weighted,
+                'performance_task': pt_weighted,
+                'examinations': exam_weighted,
+                'grade': grade_sum,
+                'gpa': gpa,
+            })
     # --- SORTING FOR STUDENTS GRADES TABLE ---
     sort = request.GET.get('sort')
     dir = request.GET.get('dir', 'asc')
@@ -948,22 +1081,12 @@ def admin_dashboard(request):
         else:
             attendance_percent = 0.0
 
-        # Performance Task: percent_score and weighted_score
-        percent_score = None
-        weighted_score = None
-        try:
-            if hasattr(StudentProgress, 'grading_period'):
-                progress = StudentProgress.objects.filter(user=student, grading_period=selected_pt_period).order_by('-id').first()
-            else:
-                progress = StudentProgress.objects.filter(user=student).order_by('-id').first()
-            if progress:
-                percent_score = getattr(progress, 'percent_score', None)
-                weighted_score = getattr(progress, 'weighted_score', None)
-        except Exception:
-            percent_score = None
-            weighted_score = None
+        # Performance Task: percent_score and weighted_score (attendance-based)
+        percent_score = attendance_percent
+        weighted_score = round(percent_score * 0.5, 2) if total_days > 0 else 0.0
 
         performance_tasks.append({
+            'user_id': student.id,
             'section': section_name or "N/A",
             'full_name': f"{student.last_name}, {student.first_name}".strip() or student.username,
             'attendance': days_present,  # for backward compatibility
@@ -1439,3 +1562,34 @@ def edit_total_days(request):
         return JsonResponse({'success': True, 'message': msg})
     messages.success(request, msg)
     return redirect('admin_dashboard')
+
+
+
+@require_POST
+def edit_days_present(request):
+    user_id = request.POST.get('user_id')
+    grading_period = request.POST.get('grading_period')
+    days_present = request.POST.get('days_present')
+
+    # Validate input
+    if not user_id or not grading_period or days_present is None:
+        return JsonResponse({'success': False, 'message': 'Missing required fields.'}, status=400)
+    try:
+        days_present = int(days_present)
+        if days_present < 0:
+            raise ValueError
+    except ValueError:
+        return JsonResponse({'success': False, 'message': 'Invalid days present.'}, status=400)
+
+    User = get_user_model()
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'User not found.'}, status=404)
+
+    # Update or create Attendance record
+    attendance, created = Attendance.objects.get_or_create(user=user, grading_period=grading_period)
+    attendance.days_present = days_present
+    attendance.save()
+
+    return JsonResponse({'success': True, 'message': 'Days present updated successfully.'})

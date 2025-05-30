@@ -28,9 +28,17 @@
             <span class="badge text-dark">--</span>
         {% endif %}
     </td>
-    <td>
-        <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></button>
-    </td>
+                                    <td>
+                                    <button class="btn btn-sm btn-outline-secondary edit-days-present-btn" 
+                                    data-user-id="{{ pt.user_id }}"
+                                    data-full-name="{{ pt.full_name|escapejs }}"
+                                    data-days-present="{{ pt.days_present }}"
+                                    data-total-days="{{ pt.total_days }}"
+                                    type="button"
+                                    title="Edit Days Present">
+                                    <i class="bi bi-pencil"></i>
+                                    </button>
+                                    </td>
 </tr>
 {% endfor %}
 {% else %}
