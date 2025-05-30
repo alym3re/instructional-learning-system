@@ -1,0 +1,40 @@
+{% if performance_tasks %}
+{% for pt in performance_tasks %}
+<tr class="text-center align-middle">
+    <td class="fw-medium">{{ pt.section }}</td>
+    <td class="fw-semibold text-start" style="letter-spacing:0.5px;">{{ pt.full_name }}</td>
+                                    <td>
+                                        {% if pt.days_present is not None and pt.total_days is not None %}
+                                            <span class="badge text-dark">
+                                                {{ pt.days_present }}/{{ pt.total_days }} ({{ pt.attendance_percent|floatformat:2 }}%)
+                                            </span>
+                                        {% elif pt.attendance is not None %}
+                                            <span class="badge text-dark">{{ pt.attendance }}</span>
+                                        {% else %}
+                                            <span class="badge text-dark">--</span>
+                                        {% endif %}
+                                    </td>
+    <td>
+        {% if pt.percent_score is not None %}
+            <span class="badge text-dark">{{ pt.percent_score|floatformat:2 }}%</span>
+        {% else %}
+            <span class="badge text-dark">--</span>
+        {% endif %}
+    </td>
+    <td>
+        {% if pt.weighted_score is not None %}
+            <span class="badge text-dark">{{ pt.weighted_score|floatformat:2 }}%</span>
+        {% else %}
+            <span class="badge text-dark">--</span>
+        {% endif %}
+    </td>
+    <td>
+        <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></button>
+    </td>
+</tr>
+{% endfor %}
+{% else %}
+<tr>
+    <td colspan="6" class="text-center text-muted">No performance task data available for this selection.</td>
+</tr>
+{% endif %}

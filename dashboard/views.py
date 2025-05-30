@@ -1,5 +1,6 @@
 import io
 import datetime
+from django.views.decorators.http import require_POST
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -935,16 +936,19 @@ def admin_dashboard(request):
         elif hasattr(student, "section"):
             section_name = getattr(student, "section", "N/A")
 
-        # Attendance: sum of days_present in selected period
-        attendance_count = None
+        # Attendance: sum of days_present and total_days in selected period
         if hasattr(Attendance, 'grading_period'):
             attendance_qs = Attendance.objects.filter(user=student, grading_period=selected_pt_period)
         else:
             attendance_qs = Attendance.objects.filter(user=student)
-        attendance_count = attendance_qs.aggregate(total=Sum('days_present'))['total'] or 0
+        days_present = attendance_qs.aggregate(total=Sum('days_present'))['total'] or 0
+        total_days = attendance_qs.aggregate(total=Sum('total_days'))['total'] or 0
+        if total_days > 0:
+            attendance_percent = round((days_present / total_days) * 100, 2)
+        else:
+            attendance_percent = 0.0
 
         # Performance Task: percent_score and weighted_score
-        # Assume StudentProgress model has fields: percent_score, weighted_score, grading_period
         percent_score = None
         weighted_score = None
         try:
@@ -962,7 +966,10 @@ def admin_dashboard(request):
         performance_tasks.append({
             'section': section_name or "N/A",
             'full_name': f"{student.last_name}, {student.first_name}".strip() or student.username,
-            'attendance': attendance_count,
+            'attendance': days_present,  # for backward compatibility
+            'days_present': days_present,
+            'total_days': total_days,
+            'attendance_percent': attendance_percent,
             'percent_score': percent_score,
             'weighted_score': weighted_score,
         })
@@ -1016,6 +1023,10 @@ def admin_dashboard(request):
     # AJAX for Written Works table
     elif request.GET.get('ajax') == '1' and request.GET.get('table') == 'written_works':
         html = render_to_string('dashboard/_written_works_table_body.html', context, request=request)
+        return HttpResponse(html)
+    # AJAX for Performance Task table
+    elif request.GET.get('ajax') == '1' and request.GET.get('table') == 'performance_task':
+        html = render_to_string('dashboard/_performance_task_table_body.html', context, request=request)
         return HttpResponse(html)
     # Fallback: any AJAX
     elif request.GET.get('ajax') == '1' or request.headers.get('x-requested-with') == 'XMLHttpRequest':
@@ -1387,3 +1398,23 @@ def download_rankings_docx(request, period_value=None):
     )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+@require_POST
+def edit_total_days(request):
+    grading_period = request.POST.get('grading_period')
+    total_days = request.POST.get('total_days')
+    try:
+        total_days = int(total_days)
+    except (TypeError, ValueError):
+        messages.error(request, "Invalid number of days.")
+        return redirect('admin_dashboard')
+
+    from .models import Attendance
+    attendance_qs = Attendance.objects.all()
+    # Only filter if grading_period is not 'overall' and not empty
+    if grading_period and grading_period != 'overall':
+        attendance_qs = attendance_qs.filter(grading_period=grading_period)
+    updated = attendance_qs.update(total_days=total_days)
+    messages.success(request, f"Total days updated for {updated} students.")
+    return redirect('admin_dashboard')

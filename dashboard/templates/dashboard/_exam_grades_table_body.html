@@ -20,15 +20,6 @@
                 <span class="badge text-dark">--</span>
             {% endif %}
         </td>
-        <td>
-            {% if exam.remarks == 'Passed' %}
-                <span class="badge bg-success text-light">Passed</span>
-            {% elif exam.remarks == 'Failed' %}
-                <span class="badge bg-danger text-light">Failed</span>
-            {% else %}
-                <span class="badge text-dark">--</span>
-            {% endif %}
-        </td>
     </tr>
     {% endfor %}
 {% else %}
