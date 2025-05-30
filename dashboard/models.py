@@ -41,6 +41,7 @@ class Attendance(models.Model):
     grading_period = models.CharField(max_length=10, choices=GRADING_PERIOD_CHOICES, default='prelim')
     total_days = models.PositiveIntegerField(default=0)
     days_present = models.PositiveIntegerField(default=0)
+    recitation_percent = models.FloatField(default=0.0, help_text="Recitation percent (0-100)")
     remarks = models.CharField(max_length=255, blank=True)
 
     @property
